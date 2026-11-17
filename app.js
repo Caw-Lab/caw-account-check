@@ -192,18 +192,20 @@ function renderHealthSummary(cards) {
 function renderDelegationBox(chainLabel, explorerBase, d) {
   let badge = pill('ok', t('del_eoa'));
   let meaning = esc(t('del_eoa_desc'));
+  let delegateRow = '';
   if (d.delegated) {
     const linkHtml = explorerAddrLink(explorerBase, d.delegate);
     if (d.matchesOfficial) {
       badge = pill('ok', t('del_off'));
-      meaning = `${esc(t('del_off_desc'))}<br>delegate: ${linkHtml}`;
+      meaning = esc(t('del_off_desc'));
     } else if (d.knownDelegator) {
       badge = pill('info', t('del_known', { name: d.knownDelegator.shortLabel }));
-      meaning = `${esc(t('del_known_desc', { fullName: d.knownDelegator.label }))}<br>delegate: ${linkHtml}`;
+      meaning = esc(t('del_known_desc', { fullName: d.knownDelegator.label }));
     } else {
       badge = pill('warn', t('del_other'));
-      meaning = `${esc(t('del_other_desc'))}<br>delegate: ${linkHtml}`;
+      meaning = esc(t('del_other_desc'));
     }
+    delegateRow = `<div class="del-addr-row"><span class="del-addr-lbl">delegate</span>${linkHtml}</div>`;
     if (d.managementNonce !== null || d.executeNonce !== null) {
       meaning += `<br>${esc(t('del_nonces', { m: d.managementNonce ?? '-', e: d.executeNonce ?? '-' }))}`;
     }
@@ -229,6 +231,7 @@ function renderDelegationBox(chainLabel, explorerBase, d) {
       <div class="kv-k">${esc(chainLabel)} (block #${d.blockNumber.toLocaleString()})</div>
       <div class="kv-v">${badge}</div>
       <div class="note-line">${meaning}</div>
+      ${delegateRow}
       ${eventsHtml}
     </div>
   `;
@@ -240,10 +243,10 @@ function renderResolved(target, l1Block, l2Block, networkId) {
   if (target.resolvedVia === 'tokenId') viaText = t('via_tokenId', { id: target.tokenId });
 
   resolvedCard.innerHTML = `
-    <div class="kv-grid">
+    <div class="kv-grid kv-resolved">
       <div class="kv-box">
         <div class="kv-k">${esc(t('res_owner'))}</div>
-        <div class="kv-v mono">${esc(target.address)}</div>
+        <div class="kv-v mono addr-full">${esc(target.address)}</div>
         <div class="note-line">${esc(t('res_via') + viaText)}</div>
       </div>
       <div class="kv-box">

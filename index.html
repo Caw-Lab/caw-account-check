@@ -176,18 +176,57 @@ details.advanced summary { cursor: pointer; color: var(--mute); font-size: 13px;
 
 .kv-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: 10px;
+}
+@media (min-width: 860px) {
+  .kv-grid.kv-resolved {
+    grid-template-columns: minmax(360px, 1.5fr) 1fr 1fr;
+  }
 }
 .kv-box {
   background: var(--surface2);
   border: 1px solid var(--line);
   border-radius: 10px;
-  padding: 10px 12px;
+  padding: 11px 13px;
+  min-width: 0;
 }
-.kv-k { font-size: 12px; color: var(--mute); margin-bottom: 3px; }
-.kv-v { font-size: 14px; font-weight: 600; overflow-wrap: anywhere; }
-.note-line { color: var(--mute); font-size: 13px; margin: 8px 0 0; }
+.kv-k { font-size: 12px; color: var(--mute); margin-bottom: 4px; }
+.kv-v {
+  font-size: 14px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: break-word;
+}
+.kv-v.addr-full {
+  font-size: clamp(10.5px, 2.5vw, 13px);
+  white-space: nowrap;
+  overflow-x: auto;
+  overflow-wrap: normal;
+}
+.note-line {
+  color: var(--mute);
+  font-size: 12.8px;
+  line-height: 1.55;
+  margin: 8px 0 0;
+  line-break: strict;
+  overflow-wrap: break-word;
+}
+.del-addr-row {
+  margin-top: 7px;
+  padding-top: 7px;
+  border-top: 1px dashed var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.del-addr-lbl { font-size: 11.5px; color: var(--faint); }
+.del-addr-row a.mono,
+.del-addr-row span.mono {
+  font-size: clamp(10px, 2.3vw, 11.5px);
+  white-space: nowrap;
+  overflow-x: auto;
+}
 .sec-guide {
   background: var(--surface2);
   border-left: 3px solid var(--accent);
@@ -196,32 +235,55 @@ details.advanced summary { cursor: pointer; color: var(--mute); font-size: 13px;
   color: var(--mute);
   font-size: 13px;
   margin-bottom: 12px;
+  line-break: strict;
 }
 .sum-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: 1fr;
   gap: 10px;
+}
+@media (min-width: 560px) and (max-width: 759px) {
+  .sum-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .sum-grid > .sum-card:last-child { grid-column: span 2; }
+}
+@media (min-width: 760px) {
+  .sum-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+  .sum-grid > .sum-card:nth-child(-n+3) { grid-column: span 2; }
+  .sum-grid > .sum-card:nth-child(n+4) { grid-column: span 3; }
 }
 .sum-card {
   background: var(--surface2);
   border: 1px solid var(--line);
   border-radius: 12px;
-  padding: 12px 13px;
+  padding: 12px 14px;
+  min-width: 0;
 }
 .sum-card.ok { border-color: color-mix(in srgb, var(--ok) 45%, transparent); }
 .sum-card.info { border-color: color-mix(in srgb, var(--link) 45%, transparent); }
 .sum-card.warn { border-color: color-mix(in srgb, var(--warn) 55%, transparent); }
 .sum-card.bad { border-color: color-mix(in srgb, var(--bad) 55%, transparent); }
 .sum-title { font-size: 12px; color: var(--mute); margin-bottom: 4px; }
-.sum-status { font-size: 14px; font-weight: 700; margin-bottom: 4px; }
-.sum-desc { font-size: 12.5px; color: var(--mute); line-height: 1.5; }
+.sum-status {
+  font-size: 14px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  margin-bottom: 5px;
+  line-height: 1.4;
+}
+.sum-desc {
+  font-size: 12.5px;
+  color: var(--mute);
+  line-height: 1.55;
+  line-break: strict;
+  overflow-wrap: break-word;
+}
 .hint-sub { display: block; font-size: 11.5px; color: var(--faint); font-weight: 400; margin-top: 2px; }
 
 .tbl-wrap { overflow-x: auto; margin-top: 10px; }
-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+table { width: 100%; border-collapse: collapse; font-size: 13.5px; font-variant-numeric: tabular-nums; }
 th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
 th { color: var(--mute); font-weight: 600; font-size: 12px; white-space: nowrap; }
-td.mono { word-break: break-all; min-width: 150px; }
+td.mono { white-space: nowrap; font-size: 12.5px; }
 td.nowrap { white-space: nowrap; }
 tr:last-child td { border-bottom: 0; }
 .empty { color: var(--faint); font-size: 13.5px; margin: 4px 0; }
@@ -469,8 +531,8 @@ const MAX_UINT256 = (1n << 256n) - 1n;
 const KNOWN_DELEGATORS = {
   '0x63c0c19a282a1b52b07dd5a65b58948a07dae32b': {
     id: 'metamask_7702',
-    label: 'MetaMask EIP-7702 Delegator (EIP7702StatelessDeleGator)',
-    shortLabel: 'MetaMask EIP-7702 Delegator',
+    label: 'MetaMask (EIP7702StatelessDeleGator)',
+    shortLabel: 'MetaMask',
   },
 };
 
@@ -1305,15 +1367,15 @@ const I18N = {
     sub_sec4: 'CawProfileMarketplace 直接照会（表示のみ）',
     h_transp: '参照コントラクト・透明性情報',
     sub_transp: 'コミット 97cd13f3（testnet 定義）',
-    footer_note: 'このページはブラウザから指定された L1 / L2 RPC へ直接読み取り専用（eth_call / eth_getCode / eth_getLogs）で通信します。秘密鍵や署名要求・資金回収操作は一切行いません。',
+    footer_note: 'ブラウザから指定された L1 / L2 RPC へ直接、読み取り専用（eth_call / eth_getCode / eth_getLogs）で通信します。秘密鍵や署名要求・資金回収操作は一切行いません。',
     // Dynamic summary
     sum1_title: '1. ウォレット委任 (EIP-7702)',
     sum1_eoa_st: '良好：通常のウォレット',
     sum1_eoa_desc: 'L1 / L2 ともに外部コントラクトへの委任設定はありません。',
     sum1_ok_st: '良好：CAW 公式 SmartEOA',
     sum1_ok_desc: 'Passkey 等に使う CAW 公式の SmartEOA へ正しく委任されています。',
-    sum1_known_st: '情報：{name}',
-    sum1_known_desc: 'ウォレット公式の共通スマートアカウントコントラクトへの委任です。不審な許可ではありませんが、CAW の Passkey 機能とは併用できません。',
+    sum1_known_st: '情報：{name} スマートアカウント',
+    sum1_known_desc: '全ユーザー共通のウォレット公式コントラクトへの委任です。不審な許可ではありませんが、CAW Passkey とは併用できません。',
     sum1_warn_st: '要確認：未登録コントラクトへ委任',
     sum1_warn_desc: 'トークンの Approve ではなく EIP-7702 スマートアカウント委任の設定です。下の「1. アカウント・権限セキュリティ」のリンク先でコントラクト名を確認してください。',
     sum2_title: '2. トークン引き落とし許可',
@@ -1360,10 +1422,10 @@ const I18N = {
     del_eoa_desc: 'スマートアカウント機能は付いていない通常のウォレット状態です。',
     del_off: 'CAW 公式 SmartEOA へ委任済み',
     del_off_desc: 'Passkey 等に対応する CAW 公式コントラクトへ委任されています。',
-    del_known: '{name} へ委任中（ウォレット公式・共通）',
-    del_known_desc: 'CAW 公式 SmartEOA ではなく、{fullName}（全ユーザー共通コントラクト）へ委任されています。通常の署名利用では問題ありませんが、CAW の Passkey 機能は併用できません。',
-    del_other: '未登録コントラクトへ EIP-7702 委任中（要確認）',
-    del_other_desc: 'CAW 公式 SmartEOA や既知のウォレット公式コントラクトに該当しないアドレスへ委任されています（トークンの Approve ではありません）。リンク先のエクスプローラーでコントラクト名を確認してください。',
+    del_known: '{name} 公式スマートアカウント',
+    del_known_desc: 'CAW 公式 SmartEOA ではなく、{fullName}（全ユーザー共通）へ委任中です。通常署名での利用は可能ですが、CAW Passkey は併用できません。',
+    del_other: '未登録コントラクトへ委任中（要確認）',
+    del_other_desc: 'CAW SmartEOA や既知のウォレット公式以外に委任されています（Approve ではありません）。下のリンク先でコントラクト名を確認してください。',
     del_contract: 'コントラクトアドレス ({b} bytes)',
     del_contract_desc: '通常の個人ウォレット（EOA）ではなく、Safe 等のスマートコントラクトウォレットです。',
     del_nonces: '管理操作回数 (managementNonce): {m} / 実行回数 (executeNonce): {e}',
@@ -1510,7 +1572,7 @@ const I18N = {
     sum1_eoa_desc: 'No external smart-account delegation is set on L1 or L2.',
     sum1_ok_st: 'Healthy: Official CAW SmartEOA',
     sum1_ok_desc: 'Delegated to the reference CAW SmartEOA contract (used for Passkeys, etc.).',
-    sum1_known_st: 'Info: {name}',
+    sum1_known_st: 'Info: {name} Smart Account',
     sum1_known_desc: 'Delegated to an official wallet smart-account singleton (shared by all users). Not suspicious, though it cannot be combined with CAW Passkeys.',
     sum1_warn_st: 'Check: Unregistered Delegation',
     sum1_warn_desc: 'This is an EIP-7702 smart-account delegation (not a token Approve). Open the delegate link in Section 1 below to verify the contract name.',
@@ -1558,8 +1620,8 @@ const I18N = {
     del_eoa_desc: 'Plain wallet with no EIP-7702 smart-account code attached.',
     del_off: 'Delegated to Official CAW SmartEOA',
     del_off_desc: 'Points to the reference CAW SmartEOA implementation (Passkeys, etc.).',
-    del_known: 'Delegated to {name} (Wallet Official Singleton)',
-    del_known_desc: 'Delegated to {fullName} (shared across all users), not CAW SmartEOA. Normal wallet signing works, though CAW Passkeys cannot be used alongside it.',
+    del_known: '{name} Official Smart Account',
+    del_known_desc: 'Delegated to {fullName} (shared across all users), not CAW SmartEOA. Normal signing works, though CAW Passkeys cannot be used alongside it.',
     del_other: 'Delegated to Unregistered Contract (Check)',
     del_other_desc: 'Delegated via EIP-7702 to an address not recognized as CAW SmartEOA or a known wallet delegator (this is not a token Approve). Open the explorer link below to verify the contract name.',
     del_contract: 'Contract Address ({b} bytes)',
@@ -1859,18 +1921,20 @@ function renderHealthSummary(cards) {
 function renderDelegationBox(chainLabel, explorerBase, d) {
   let badge = pill('ok', t('del_eoa'));
   let meaning = esc(t('del_eoa_desc'));
+  let delegateRow = '';
   if (d.delegated) {
     const linkHtml = explorerAddrLink(explorerBase, d.delegate);
     if (d.matchesOfficial) {
       badge = pill('ok', t('del_off'));
-      meaning = `${esc(t('del_off_desc'))}<br>delegate: ${linkHtml}`;
+      meaning = esc(t('del_off_desc'));
     } else if (d.knownDelegator) {
       badge = pill('info', t('del_known', { name: d.knownDelegator.shortLabel }));
-      meaning = `${esc(t('del_known_desc', { fullName: d.knownDelegator.label }))}<br>delegate: ${linkHtml}`;
+      meaning = esc(t('del_known_desc', { fullName: d.knownDelegator.label }));
     } else {
       badge = pill('warn', t('del_other'));
-      meaning = `${esc(t('del_other_desc'))}<br>delegate: ${linkHtml}`;
+      meaning = esc(t('del_other_desc'));
     }
+    delegateRow = `<div class="del-addr-row"><span class="del-addr-lbl">delegate</span>${linkHtml}</div>`;
     if (d.managementNonce !== null || d.executeNonce !== null) {
       meaning += `<br>${esc(t('del_nonces', { m: d.managementNonce ?? '-', e: d.executeNonce ?? '-' }))}`;
     }
@@ -1896,6 +1960,7 @@ function renderDelegationBox(chainLabel, explorerBase, d) {
       <div class="kv-k">${esc(chainLabel)} (block #${d.blockNumber.toLocaleString()})</div>
       <div class="kv-v">${badge}</div>
       <div class="note-line">${meaning}</div>
+      ${delegateRow}
       ${eventsHtml}
     </div>
   `;
@@ -1907,10 +1972,10 @@ function renderResolved(target, l1Block, l2Block, networkId) {
   if (target.resolvedVia === 'tokenId') viaText = t('via_tokenId', { id: target.tokenId });
 
   resolvedCard.innerHTML = `
-    <div class="kv-grid">
+    <div class="kv-grid kv-resolved">
       <div class="kv-box">
         <div class="kv-k">${esc(t('res_owner'))}</div>
-        <div class="kv-v mono">${esc(target.address)}</div>
+        <div class="kv-v mono addr-full">${esc(target.address)}</div>
         <div class="note-line">${esc(t('res_via') + viaText)}</div>
       </div>
       <div class="kv-box">

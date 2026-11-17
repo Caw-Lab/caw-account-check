@@ -167,18 +167,57 @@ details.advanced summary { cursor: pointer; color: var(--mute); font-size: 13px;
 
 .kv-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: 10px;
+}
+@media (min-width: 860px) {
+  .kv-grid.kv-resolved {
+    grid-template-columns: minmax(360px, 1.5fr) 1fr 1fr;
+  }
 }
 .kv-box {
   background: var(--surface2);
   border: 1px solid var(--line);
   border-radius: 10px;
-  padding: 10px 12px;
+  padding: 11px 13px;
+  min-width: 0;
 }
-.kv-k { font-size: 12px; color: var(--mute); margin-bottom: 3px; }
-.kv-v { font-size: 14px; font-weight: 600; overflow-wrap: anywhere; }
-.note-line { color: var(--mute); font-size: 13px; margin: 8px 0 0; }
+.kv-k { font-size: 12px; color: var(--mute); margin-bottom: 4px; }
+.kv-v {
+  font-size: 14px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: break-word;
+}
+.kv-v.addr-full {
+  font-size: clamp(10.5px, 2.5vw, 13px);
+  white-space: nowrap;
+  overflow-x: auto;
+  overflow-wrap: normal;
+}
+.note-line {
+  color: var(--mute);
+  font-size: 12.8px;
+  line-height: 1.55;
+  margin: 8px 0 0;
+  line-break: strict;
+  overflow-wrap: break-word;
+}
+.del-addr-row {
+  margin-top: 7px;
+  padding-top: 7px;
+  border-top: 1px dashed var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.del-addr-lbl { font-size: 11.5px; color: var(--faint); }
+.del-addr-row a.mono,
+.del-addr-row span.mono {
+  font-size: clamp(10px, 2.3vw, 11.5px);
+  white-space: nowrap;
+  overflow-x: auto;
+}
 .sec-guide {
   background: var(--surface2);
   border-left: 3px solid var(--accent);
@@ -187,32 +226,55 @@ details.advanced summary { cursor: pointer; color: var(--mute); font-size: 13px;
   color: var(--mute);
   font-size: 13px;
   margin-bottom: 12px;
+  line-break: strict;
 }
 .sum-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: 1fr;
   gap: 10px;
+}
+@media (min-width: 560px) and (max-width: 759px) {
+  .sum-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .sum-grid > .sum-card:last-child { grid-column: span 2; }
+}
+@media (min-width: 760px) {
+  .sum-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+  .sum-grid > .sum-card:nth-child(-n+3) { grid-column: span 2; }
+  .sum-grid > .sum-card:nth-child(n+4) { grid-column: span 3; }
 }
 .sum-card {
   background: var(--surface2);
   border: 1px solid var(--line);
   border-radius: 12px;
-  padding: 12px 13px;
+  padding: 12px 14px;
+  min-width: 0;
 }
 .sum-card.ok { border-color: color-mix(in srgb, var(--ok) 45%, transparent); }
 .sum-card.info { border-color: color-mix(in srgb, var(--link) 45%, transparent); }
 .sum-card.warn { border-color: color-mix(in srgb, var(--warn) 55%, transparent); }
 .sum-card.bad { border-color: color-mix(in srgb, var(--bad) 55%, transparent); }
 .sum-title { font-size: 12px; color: var(--mute); margin-bottom: 4px; }
-.sum-status { font-size: 14px; font-weight: 700; margin-bottom: 4px; }
-.sum-desc { font-size: 12.5px; color: var(--mute); line-height: 1.5; }
+.sum-status {
+  font-size: 14px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  margin-bottom: 5px;
+  line-height: 1.4;
+}
+.sum-desc {
+  font-size: 12.5px;
+  color: var(--mute);
+  line-height: 1.55;
+  line-break: strict;
+  overflow-wrap: break-word;
+}
 .hint-sub { display: block; font-size: 11.5px; color: var(--faint); font-weight: 400; margin-top: 2px; }
 
 .tbl-wrap { overflow-x: auto; margin-top: 10px; }
-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+table { width: 100%; border-collapse: collapse; font-size: 13.5px; font-variant-numeric: tabular-nums; }
 th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
 th { color: var(--mute); font-weight: 600; font-size: 12px; white-space: nowrap; }
-td.mono { word-break: break-all; min-width: 150px; }
+td.mono { white-space: nowrap; font-size: 12.5px; }
 td.nowrap { white-space: nowrap; }
 tr:last-child td { border-bottom: 0; }
 .empty { color: var(--faint); font-size: 13.5px; margin: 4px 0; }
