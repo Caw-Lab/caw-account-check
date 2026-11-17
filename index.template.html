@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>CAW Account Check</title>
+  <meta name="description" content="Check CAW V2 wallet delegation, allowances, L1/L2 profile balances, session keys, and marketplace claims directly via RPC without relying on node APIs.">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src https: http:; img-src 'self' data:; base-uri 'none';">
+  <!-- INLINE_CSS -->
+</head>
+<body>
+  <div class="wrap">
+    <header class="top">
+      <div class="brand">
+        <h1><span>CAW</span> Account Check</h1>
+        <p data-i18n="subtitle"></p>
+      </div>
+      <div class="badges">
+        <span class="pill" data-i18n="pill_readonly"></span>
+        <span class="pill" data-i18n="pill_zerobackend"></span>
+        <div class="seg" id="langseg" role="group" aria-label="Language">
+          <button type="button" data-lang="ja">日本語</button>
+          <button type="button" data-lang="en">EN</button>
+        </div>
+      </div>
+    </header>
+
+    <section class="card query-card">
+      <form id="inspect-form">
+        <div class="input-row">
+          <div class="field grow">
+            <label for="target-input"><span data-i18n="target_label_prefix"></span><code>0x...</code><span data-i18n="target_label_mid"></span><code>@username</code><span data-i18n="target_label_mid"></span><code>tokenId</code><span data-i18n="target_label_suffix"></span></label>
+            <input id="target-input" type="text" data-i18n-placeholder="target_placeholder" autocomplete="off" spellcheck="false" required>
+          </div>
+          <div class="field action-col">
+            <button id="inspect-btn" type="submit" class="btn primary" data-i18n="btn_inspect"></button>
+          </div>
+        </div>
+
+        <details class="advanced">
+          <summary data-i18n="adv_summary"></summary>
+          <div class="adv-grid">
+            <div class="field">
+              <label for="l1-rpc" data-i18n="lbl_l1_rpc"></label>
+              <input id="l1-rpc" type="url" spellcheck="false">
+            </div>
+            <div class="field">
+              <label for="l2-rpc" data-i18n="lbl_l2_rpc"></label>
+              <input id="l2-rpc" type="url" spellcheck="false">
+            </div>
+            <div class="field">
+              <label for="network-id" data-i18n="lbl_network_id"></label>
+              <input id="network-id" type="number" min="1" step="1" value="1">
+            </div>
+            <div class="field">
+              <label for="log-blocks" data-i18n="lbl_log_blocks"></label>
+              <select id="log-blocks">
+                <option value="20000" data-i18n="opt_20k"></option>
+                <option value="100000" selected data-i18n="opt_100k"></option>
+                <option value="500000" data-i18n="opt_500k"></option>
+                <option value="1500000" data-i18n="opt_1500k"></option>
+                <option value="0" data-i18n="opt_0"></option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="extra-session-keys" data-i18n="lbl_extra_sessions"></label>
+              <input id="extra-session-keys" type="text" placeholder="0x..., 0x..." spellcheck="false">
+            </div>
+            <div class="field">
+              <label for="extra-spenders" data-i18n="lbl_extra_spenders"></label>
+              <input id="extra-spenders" type="text" placeholder="0x..." spellcheck="false">
+            </div>
+          </div>
+        </details>
+      </form>
+
+      <div id="status-bar" class="status-bar" hidden></div>
+      <div id="error-box" class="error-box" hidden></div>
+    </section>
+
+    <main id="results" hidden>
+      <section class="meta-strip card" id="resolved-card"></section>
+
+      <section class="card">
+        <div class="sec-head">
+          <h2 data-i18n="h_summary"></h2>
+          <span class="sec-sub" data-i18n="sub_summary"></span>
+        </div>
+        <div id="health-summary"></div>
+      </section>
+
+      <section class="card">
+        <div class="sec-head">
+          <h2 data-i18n="h_sec1"></h2>
+          <span class="sec-sub" data-i18n="sub_sec1"></span>
+        </div>
+        <div id="security-section"></div>
+      </section>
+
+      <section class="card">
+        <div class="sec-head">
+          <h2 data-i18n="h_sec2"></h2>
+          <span class="sec-sub" data-i18n="sub_sec2"></span>
+        </div>
+        <div id="profiles-section"></div>
+      </section>
+
+      <section class="card">
+        <div class="sec-head">
+          <h2 data-i18n="h_sec3"></h2>
+          <span class="sec-sub" data-i18n="sub_sec3"></span>
+        </div>
+        <div id="sessions-section"></div>
+      </section>
+
+      <section class="card">
+        <div class="sec-head">
+          <h2 data-i18n="h_sec4"></h2>
+          <span class="sec-sub" data-i18n="sub_sec4"></span>
+        </div>
+        <div id="marketplace-section"></div>
+      </section>
+
+      <section class="card">
+        <div class="sec-head">
+          <h2 data-i18n="h_transp"></h2>
+          <span class="sec-sub" data-i18n="sub_transp"></span>
+        </div>
+        <div id="transparency-section"></div>
+      </section>
+    </main>
+
+    <footer>
+      <span data-i18n="footer_note"></span>
+    </footer>
+  </div>
+
+  <!-- INLINE_JS -->
+</body>
+</html>

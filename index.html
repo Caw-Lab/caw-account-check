@@ -1,0 +1,2235 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>CAW Account Check</title>
+  <meta name="description" content="Check CAW V2 wallet delegation, allowances, L1/L2 profile balances, session keys, and marketplace claims directly via RPC without relying on node APIs.">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src https: http:; img-src 'self' data:; base-uri 'none';">
+  <style>
+:root {
+  --bg: #0f1014;
+  --surface: #171920;
+  --surface2: #1e2129;
+  --line: #2a2e38;
+  --fg: #eceef3;
+  --mute: #9aa1b2;
+  --faint: #6b7283;
+  --accent: #f2b134;
+  --accent-ink: #1a1405;
+  --link: #7cc8ff;
+  --ok: #5fd08a;
+  --warn: #f0c14b;
+  --bad: #ef6f8f;
+}
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg: #f6f7f9;
+    --surface: #ffffff;
+    --surface2: #f0f2f5;
+    --line: #dde1e8;
+    --fg: #161922;
+    --mute: #566074;
+    --faint: #7a8497;
+    --accent: #b97800;
+    --accent-ink: #ffffff;
+    --link: #0b6aa8;
+    --ok: #1f8f4e;
+    --warn: #9a7300;
+    --bad: #c23a63;
+  }
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font: 15px/1.6 system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif;
+}
+code, .mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.9em;
+}
+.wrap { max-width: 1040px; margin: 0 auto; padding: 0 18px 40px; }
+
+.top {
+  padding: 26px 0 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.brand h1 { margin: 0; font: 700 26px/1.2 Georgia, serif; }
+.brand h1 span { color: var(--accent); }
+.brand p { margin: 4px 0 0; color: var(--mute); font-size: 14px; }
+.badges { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.seg {
+  display: inline-flex;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--surface);
+}
+.seg button {
+  all: unset;
+  cursor: pointer;
+  padding: 4px 12px;
+  font-size: 13px;
+  color: var(--mute);
+  box-sizing: border-box;
+}
+.seg button[aria-pressed="true"] {
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 600;
+}
+.seg button:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
+.pill {
+  display: inline-block;
+  font-size: 12px;
+  line-height: 1.4;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 3px 10px;
+  color: var(--mute);
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+.pill.ok { border-color: color-mix(in srgb, var(--ok) 45%, transparent); color: var(--ok); }
+.pill.warn { border-color: color-mix(in srgb, var(--warn) 50%, transparent); color: var(--warn); }
+.pill.bad { border-color: color-mix(in srgb, var(--bad) 50%, transparent); color: var(--bad); }
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 16px 18px;
+  margin-bottom: 16px;
+}
+
+.input-row { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
+.grow { flex: 1 1 320px; }
+.action-col { flex: 0 0 auto; }
+.field { display: flex; flex-direction: column; gap: 5px; }
+.field label { font-size: 12.5px; color: var(--mute); }
+.field input, .field select {
+  background: var(--surface2);
+  color: var(--fg);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 9px 12px;
+  font: inherit;
+  width: 100%;
+}
+.field input:focus, .field select:focus { outline: 2px solid var(--link); outline-offset: 1px; }
+
+.btn {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 9px 18px;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  background: var(--surface2);
+  color: var(--fg);
+}
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.btn:disabled { opacity: 0.6; cursor: wait; }
+
+details.advanced { margin-top: 12px; }
+details.advanced summary { cursor: pointer; color: var(--mute); font-size: 13px; user-select: none; }
+.adv-grid {
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+.status-bar { margin-top: 12px; font-size: 13px; color: var(--mute); }
+.error-box {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--bad) 50%, transparent);
+  background: color-mix(in srgb, var(--bad) 10%, transparent);
+  color: var(--bad);
+  font-size: 13.5px;
+}
+
+.sec-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 8px;
+}
+.sec-head h2 { margin: 0; font-size: 17px; }
+.sec-sub { color: var(--faint); font-size: 12.5px; }
+
+.kv-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 10px;
+}
+.kv-box {
+  background: var(--surface2);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+.kv-k { font-size: 12px; color: var(--mute); margin-bottom: 3px; }
+.kv-v { font-size: 14px; font-weight: 600; overflow-wrap: anywhere; }
+.note-line { color: var(--mute); font-size: 13px; margin: 8px 0 0; }
+.sec-guide {
+  background: var(--surface2);
+  border-left: 3px solid var(--accent);
+  padding: 8px 12px;
+  border-radius: 0 8px 8px 0;
+  color: var(--mute);
+  font-size: 13px;
+  margin-bottom: 12px;
+}
+.sum-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+}
+.sum-card {
+  background: var(--surface2);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px 13px;
+}
+.sum-card.ok { border-color: color-mix(in srgb, var(--ok) 45%, transparent); }
+.sum-card.warn { border-color: color-mix(in srgb, var(--warn) 55%, transparent); }
+.sum-card.bad { border-color: color-mix(in srgb, var(--bad) 55%, transparent); }
+.sum-title { font-size: 12px; color: var(--mute); margin-bottom: 4px; }
+.sum-status { font-size: 14px; font-weight: 700; margin-bottom: 4px; }
+.sum-desc { font-size: 12.5px; color: var(--mute); line-height: 1.5; }
+.hint-sub { display: block; font-size: 11.5px; color: var(--faint); font-weight: 400; margin-top: 2px; }
+
+.tbl-wrap { overflow-x: auto; margin-top: 10px; }
+table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { color: var(--mute); font-weight: 600; font-size: 12px; white-space: nowrap; }
+td.mono { word-break: break-all; min-width: 150px; }
+td.nowrap { white-space: nowrap; }
+tr:last-child td { border-bottom: 0; }
+.empty { color: var(--faint); font-size: 13.5px; margin: 4px 0; }
+
+footer {
+  margin-top: 20px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+  color: var(--faint);
+  font-size: 12.5px;
+}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="top">
+      <div class="brand">
+        <h1><span>CAW</span> Account Check</h1>
+        <p data-i18n="subtitle"></p>
+      </div>
+      <div class="badges">
+        <span class="pill" data-i18n="pill_readonly"></span>
+        <span class="pill" data-i18n="pill_zerobackend"></span>
+        <div class="seg" id="langseg" role="group" aria-label="Language">
+          <button type="button" data-lang="ja">日本語</button>
+          <button type="button" data-lang="en">EN</button>
+        </div>
+      </div>
+    </header>
+
+    <section class="card query-card">
+      <form id="inspect-form">
+        <div class="input-row">
+          <div class="field grow">
+            <label for="target-input"><span data-i18n="target_label_prefix"></span><code>0x...</code><span data-i18n="target_label_mid"></span><code>@username</code><span data-i18n="target_label_mid"></span><code>tokenId</code><span data-i18n="target_label_suffix"></span></label>
+            <input id="target-input" type="text" data-i18n-placeholder="target_placeholder" autocomplete="off" spellcheck="false" required>
+          </div>
+          <div class="field action-col">
+            <button id="inspect-btn" type="submit" class="btn primary" data-i18n="btn_inspect"></button>
+          </div>
+        </div>
+
+        <details class="advanced">
+          <summary data-i18n="adv_summary"></summary>
+          <div class="adv-grid">
+            <div class="field">
+              <label for="l1-rpc" data-i18n="lbl_l1_rpc"></label>
+              <input id="l1-rpc" type="url" spellcheck="false">
+            </div>
+            <div class="field">
+              <label for="l2-rpc" data-i18n="lbl_l2_rpc"></label>
+              <input id="l2-rpc" type="url" spellcheck="false">
+            </div>
+            <div class="field">
+              <label for="network-id" data-i18n="lbl_network_id"></label>
+              <input id="network-id" type="number" min="1" step="1" value="1">
+            </div>
+            <div class="field">
+              <label for="log-blocks" data-i18n="lbl_log_blocks"></label>
+              <select id="log-blocks">
+                <option value="20000" data-i18n="opt_20k"></option>
+                <option value="100000" selected data-i18n="opt_100k"></option>
+                <option value="500000" data-i18n="opt_500k"></option>
+                <option value="1500000" data-i18n="opt_1500k"></option>
+                <option value="0" data-i18n="opt_0"></option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="extra-session-keys" data-i18n="lbl_extra_sessions"></label>
+              <input id="extra-session-keys" type="text" placeholder="0x..., 0x..." spellcheck="false">
+            </div>
+            <div class="field">
+              <label for="extra-spenders" data-i18n="lbl_extra_spenders"></label>
+              <input id="extra-spenders" type="text" placeholder="0x..." spellcheck="false">
+            </div>
+          </div>
+        </details>
+      </form>
+
+      <div id="status-bar" class="status-bar" hidden></div>
+      <div id="error-box" class="error-box" hidden></div>
+    </section>
+
+    <main id="results" hidden>
+      <section class="meta-strip card" id="resolved-card"></section>
+
+      <section class="card">
+        <div class="sec-head">
+          <h2 data-i18n="h_summary"></h2>
+          <span class="sec-sub" data-i18n="sub_summary"></span>
+        </div>
+        <div id="health-summary"></div>
+      </section>
+
+      <section class="card">
+        <div class="sec-head">
+          <h2 data-i18n="h_sec1"></h2>
+          <span class="sec-sub" data-i18n="sub_sec1"></span>
+        </div>
+        <div id="security-section"></div>
+      </section>
+
+      <section class="card">
+        <div class="sec-head">
+          <h2 data-i18n="h_sec2"></h2>
+          <span class="sec-sub" data-i18n="sub_sec2"></span>
+        </div>
+        <div id="profiles-section"></div>
+      </section>
+
+      <section class="card">
+        <div class="sec-head">
+          <h2 data-i18n="h_sec3"></h2>
+          <span class="sec-sub" data-i18n="sub_sec3"></span>
+        </div>
+        <div id="sessions-section"></div>
+      </section>
+
+      <section class="card">
+        <div class="sec-head">
+          <h2 data-i18n="h_sec4"></h2>
+          <span class="sec-sub" data-i18n="sub_sec4"></span>
+        </div>
+        <div id="marketplace-section"></div>
+      </section>
+
+      <section class="card">
+        <div class="sec-head">
+          <h2 data-i18n="h_transp"></h2>
+          <span class="sec-sub" data-i18n="sub_transp"></span>
+        </div>
+        <div id="transparency-section"></div>
+      </section>
+    </main>
+
+    <footer>
+      <span data-i18n="footer_note"></span>
+    </footer>
+  </div>
+
+  <script>
+(() => {
+'use strict';
+
+// --- lib/contracts.js ---
+// Contract addresses, selectors, and event topic0 hashes derived from
+// GilgameshCaw/Caw solidity/contracts/ (MIT) & client/src/abi/deployments.ts (commit 97cd13f3).
+
+const NETWORK_PRESETS = {
+  testnet: {
+    id: 'testnet',
+    label: 'Testnet (Sepolia + Base Sepolia / Network 1)',
+    networkId: 1,
+    l1ChainId: 11155111,
+    l1ChainName: 'Ethereum Sepolia',
+    l1DefaultRpc: 'https://ethereum-sepolia-rpc.publicnode.com',
+    l2ChainId: 84532,
+    l2ChainName: 'Base Sepolia',
+    l2DefaultRpc: 'https://base-sepolia-rpc.publicnode.com',
+    contracts: {
+      L1: {
+        MintableCaw: '0x56817dc696448135203C0556f702c6a953260411',
+        CawProfile: '0x3BA577936Ff6Cfe07DC2D00e6669436C6Dace319',
+        CawProfileMinter: '0x5613353c6B6F55fBc82487D36a5316A2cAdE7Ee0',
+        CawProfileLens: '0xFfFEF4bD46C222aa566CF1F17e7F47c1eDDE225b',
+        CawProfileMarketplace: '0x858F60fC71bAfBdC6Ba170aCC7dc8974F6270CBD',
+        SmartEOA: '0x918082aB668D7661bCe65C3CAAF047648f7D4271',
+      },
+      L2: {
+        CawProfileLedger: '0x93593A023629EB84B389770d76A81C5f982F02a9',
+        CawActions: '0x73246104f57001EDC6d0659Fa37Afb672a76E763',
+        CawActionsERC1271: '0x78AB5d7be8Ba2BC722f58B862c16Ee77fEcbCF74',
+        SmartEOA: '0x918082aB668D7661bCe65C3CAAF047648f7D4271',
+      },
+    },
+  },
+};
+
+const SELECTORS = {
+  // CawProfileLens (L1)
+  tokens: '0xe4860339',                   // tokens(address)
+  tokenByUsername: '0x1b65956b',          // tokenByUsername(string)
+  profilesWithNetworkState: '0x1807339f', // profilesWithNetworkState(address,uint32)
+  // CawProfile / CawProfileLedger
+  ownerOf: '0x6352211e',                  // ownerOf(uint256)
+  // ERC-20 (CAW)
+  allowance: '0xdd62ed3e',                // allowance(address,address)
+  balanceOf: '0x70a08231',                // balanceOf(address)
+  decimals: '0x313ce567',                 // decimals()
+  symbol: '0x95d89b41',                   // symbol()
+  // CawProfileLedger (L2)
+  cawBalanceOf: '0x3d3bfa27',             // cawBalanceOf(uint32)
+  validSession: '0x9223d272',             // validSession(address,address)
+  sponsorRepay: '0x2d2ab58c',             // sponsorRepay(uint32)
+  ownerSessionEpoch: '0xf8f4d9c7',        // ownerSessionEpoch(address)
+  sessionNonce: '0x6d0ae046',             // sessionNonce(address)
+  // CawActions (L2)
+  sessionSpent: '0x9119fc84',             // sessionSpent(address,address)
+  networkActionCount: '0xbe17131d',       // networkActionCount(uint32)
+  // CawProfileMarketplace (L1)
+  pendingPayouts: '0x784712f2',           // pendingPayouts(address)
+  pendingTokenPayouts: '0x806ce79d',      // pendingTokenPayouts(address,address)
+  pendingReturns: '0xb15039ab',           // pendingReturns(address,uint256)
+  offers: '0x8a72ea6a',                   // offers(uint256)
+  listings: '0xde74e57b',                 // listings(uint256)
+  nextOfferId: '0x5f5d0655',              // nextOfferId()
+  nextListingId: '0xaaccf1ec',            // nextListingId()
+  // SmartEOA
+  managementNonceOf: '0x233c627f',        // managementNonceOf()
+  executeNonceOf: '0x687cda31',           // executeNonceOf()
+};
+
+const TOPICS = {
+  // CawProfileLedger
+  SessionCreated: '0x81ab30c0cb637e6d75e0599eaa9ebf9e5e44a09fa0c220869b565d29b6acf6d1',
+  SessionRevoked: '0x9a20fd73f3c4985be44f081964b55d63f69ed94995474740c82bfbff9d6ab5c4',
+  // SmartEOA
+  PasskeyAdded: '0x4814a9e3e779038db777441d565e4c633c050a88074907f9551c347973161fa8',
+  PasskeyActivated: '0x93970bc2c79658685b7a84437d122acea8d6029ff9d5a5b434c7c6f3438f56b4',
+  PasskeyRemoved: '0x6478f30699d78c25aec768184c69105e8f3606c825c91ca4511e96ae6a4e4e1f',
+  PasskeyCancelled: '0x398d120d53fc8d67df3ccac15da5e07fdc8f2697f4494ac74f47567192c6b821',
+  EcdsaFallbackRotated: '0x13fbce01645c5624635c2b7e65bf7cd8e64267c2d60dafa9b8ad4e4ca2c22ffe',
+};
+
+// Solidity enum ActionType { CAW, LIKE, UNLIKE, RECAW, FOLLOW, UNFOLLOW, WITHDRAW, OTHER }
+const ACTION_SCOPE_NAMES = [
+  'CAW',
+  'LIKE',
+  'UNLIKE',
+  'RECAW',
+  'FOLLOW',
+  'UNFOLLOW',
+  'WITHDRAW',
+  'OTHER',
+];
+
+const LISTING_TYPES = ['FIXED', 'DUTCH_AUCTION', 'ENGLISH_AUCTION'];
+
+const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
+const MAX_UINT256 = (1n << 256n) - 1n;
+
+// --- lib/abi.js ---
+// Minimal dependency-free ABI encoder/decoder and hex formatting helpers.
+const utf8Encoder = new TextEncoder();
+const utf8Decoder = new TextDecoder();
+
+function strip0x(hex) {
+  return typeof hex === 'string' && (hex.startsWith('0x') || hex.startsWith('0X'))
+    ? hex.slice(2)
+    : String(hex || '');
+}
+
+function isValidAddress(addr) {
+  return typeof addr === 'string' && /^0x[0-9a-fA-F]{40}$/i.test(addr.trim());
+}
+
+function normalizeAddress(addr) {
+  if (!isValidAddress(addr)) {
+    throw new Error(`Invalid address: ${addr}`);
+  }
+  return '0x' + addr.trim().slice(2).toLowerCase();
+}
+
+function padAddress(addr) {
+  return normalizeAddress(addr).slice(2).padStart(64, '0');
+}
+
+function padUint(value) {
+  const n = typeof value === 'bigint' ? value : BigInt(value);
+  if (n < 0n) throw new Error('Negative uint not supported');
+  return n.toString(16).padStart(64, '0');
+}
+
+function encodeAddressArgCall(selector, address) {
+  return selector + padAddress(address);
+}
+
+function encodeUintArgCall(selector, value) {
+  return selector + padUint(value);
+}
+
+function encodeAddressAddressCall(selector, a, b) {
+  return selector + padAddress(a) + padAddress(b);
+}
+
+function encodeAddressUintCall(selector, addr, num) {
+  return selector + padAddress(addr) + padUint(num);
+}
+
+function encodeStringArgCall(selector, str) {
+  const bytes = utf8Encoder.encode(str);
+  const offset = padUint(32);
+  const len = padUint(bytes.length);
+  let hex = '';
+  for (const b of bytes) hex += b.toString(16).padStart(2, '0');
+  const rem = bytes.length % 32;
+  if (rem !== 0) hex += '00'.repeat(32 - rem);
+  return selector + offset + len + hex;
+}
+
+function readWordHex(rawHex, byteOffset) {
+  const start = byteOffset * 2;
+  if (start + 64 > rawHex.length) {
+    throw new Error(`ABI out of bounds at byte ${byteOffset} (len=${rawHex.length / 2})`);
+  }
+  return rawHex.slice(start, start + 64);
+}
+
+function readUint(rawHex, byteOffset) {
+  return BigInt('0x' + readWordHex(rawHex, byteOffset));
+}
+
+function readBool(rawHex, byteOffset) {
+  return readUint(rawHex, byteOffset) !== 0n;
+}
+
+function readAddress(rawHex, byteOffset) {
+  return '0x' + readWordHex(rawHex, byteOffset).slice(24).toLowerCase();
+}
+
+function readDynamicString(rawHex, structBaseByteOffset, offsetSlotByteOffset) {
+  const relOffset = Number(readUint(rawHex, offsetSlotByteOffset));
+  const strStart = structBaseByteOffset + relOffset;
+  const byteLen = Number(readUint(rawHex, strStart));
+  const hexStart = (strStart + 32) * 2;
+  const hexEnd = hexStart + byteLen * 2;
+  if (hexEnd > rawHex.length) {
+    throw new Error(`ABI string out of bounds (need ${hexEnd}, got ${rawHex.length})`);
+  }
+  const bytes = new Uint8Array(byteLen);
+  for (let i = 0; i < byteLen; i++) {
+    bytes[i] = parseInt(rawHex.slice(hexStart + i * 2, hexStart + i * 2 + 2), 16);
+  }
+  return utf8Decoder.decode(bytes);
+}
+
+function decodeSingleUint(hexResult) {
+  const raw = strip0x(hexResult);
+  if (raw.length < 64) return 0n;
+  return readUint(raw, 0);
+}
+
+function decodeSingleAddress(hexResult) {
+  const raw = strip0x(hexResult);
+  if (raw.length < 64) return null;
+  return readAddress(raw, 0);
+}
+
+function decodeSingleString(hexResult) {
+  const raw = strip0x(hexResult);
+  if (raw.length < 128) return '';
+  return readDynamicString(raw, 0, 0);
+}
+
+// Decodes CawProfileLens.tokenByUsername(string) -> struct Token
+function decodeLensToken(hexResult) {
+  const raw = strip0x(hexResult);
+  if (raw.length < 64) throw new Error('Empty tokenByUsername response');
+  const structStart = Number(readUint(raw, 0));
+  return {
+    tokenId: Number(readUint(raw, structStart)),
+    username: readDynamicString(raw, structStart, structStart + 32),
+    owner: readAddress(raw, structStart + 64),
+    ownerBalance: readUint(raw, structStart + 96),
+    withdrawable: readUint(raw, structStart + 128),
+  };
+}
+
+// Decodes CawProfileLens.profilesWithNetworkState(address,uint32) -> TokenWithNetworkState[]
+function decodeProfilesWithNetworkState(hexResult) {
+  const raw = strip0x(hexResult);
+  if (raw.length < 128) return [];
+  const arrayStart = Number(readUint(raw, 0));
+  const count = Number(readUint(raw, arrayStart));
+  const elemsBase = arrayStart + 32;
+  const items = [];
+  for (let i = 0; i < count; i++) {
+    const relOffset = Number(readUint(raw, elemsBase + i * 32));
+    const s = elemsBase + relOffset;
+    items.push({
+      tokenId: Number(readUint(raw, s)),
+      username: readDynamicString(raw, s, s + 32),
+      owner: readAddress(raw, s + 64),
+      ownerBalance: readUint(raw, s + 96),
+      withdrawable: readUint(raw, s + 128),
+      authenticated: readBool(raw, s + 160),
+      withdrawFeeLocked: readBool(raw, s + 192),
+      lockedWithdrawFee: readUint(raw, s + 224),
+    });
+  }
+  return items;
+}
+
+// Decodes CawProfileLedger.validSession(address,address) -> StoredSession
+function decodeStoredSession(hexResult) {
+  const raw = strip0x(hexResult);
+  if (raw.length < 384) {
+    throw new Error('Invalid StoredSession response length');
+  }
+  return {
+    expiry: Number(readUint(raw, 0)),
+    scopeBitmap: Number(readUint(raw, 32)),
+    epoch: Number(readUint(raw, 64)),
+    perActionTipRate: readUint(raw, 96),
+    profileId: Number(readUint(raw, 128)),
+    spendLimit: readUint(raw, 160),
+  };
+}
+
+// Decodes CawProfileMarketplace.offers(uint256)
+function decodeOffer(hexResult) {
+  const raw = strip0x(hexResult);
+  if (raw.length < 384) throw new Error('Invalid Offer response length');
+  return {
+    offerer: readAddress(raw, 0),
+    tokenId: Number(readUint(raw, 32)),
+    paymentToken: readAddress(raw, 64),
+    amount: readUint(raw, 96),
+    expiry: Number(readUint(raw, 128)),
+    active: readBool(raw, 160),
+  };
+}
+
+// Decodes CawProfileMarketplace.listings(uint256)
+function decodeListing(hexResult) {
+  const raw = strip0x(hexResult);
+  if (raw.length < 704) throw new Error('Invalid Listing response length');
+  const typeIdx = Number(readUint(raw, 96));
+  return {
+    tokenId: Number(readUint(raw, 0)),
+    seller: readAddress(raw, 32),
+    paymentToken: readAddress(raw, 64),
+    listingType: LISTING_TYPES[typeIdx] ?? `UNKNOWN(${typeIdx})`,
+    startPrice: readUint(raw, 128),
+    endPrice: readUint(raw, 160),
+    startTime: Number(readUint(raw, 192)),
+    endTime: Number(readUint(raw, 224)),
+    highestBid: readUint(raw, 256),
+    highestBidder: readAddress(raw, 288),
+    active: readBool(raw, 320),
+  };
+}
+
+function decodeScopeBitmap(bitmap) {
+  const allowed = [];
+  for (let bit = 0; bit < ACTION_SCOPE_NAMES.length; bit++) {
+    if ((bitmap & (1 << bit)) !== 0) {
+      allowed.push(ACTION_SCOPE_NAMES[bit]);
+    }
+  }
+  return allowed;
+}
+
+// EIP-7702 delegation indicator: 0xef0100 || 20-byte delegate address (total 23 bytes = 46 hex chars)
+function parseEip7702Code(codeHex) {
+  const clean = strip0x(codeHex).toLowerCase();
+  if (!clean) return { delegated: false, delegate: null, codeBytes: 0, isEoa: true };
+  if (clean.length === 46 && clean.startsWith('ef0100')) {
+    return {
+      delegated: true,
+      delegate: '0x' + clean.slice(6),
+      codeBytes: 23,
+      isEoa: false,
+    };
+  }
+  return {
+    delegated: false,
+    delegate: null,
+    codeBytes: clean.length / 2,
+    isEoa: false,
+  };
+}
+
+function formatUnits(value, decimals = 18, maxFrac = 4) {
+  const v = typeof value === 'bigint' ? value : BigInt(value);
+  if (v === 0n) return '0';
+  const neg = v < 0n;
+  const abs = neg ? -v : v;
+  const base = 10n ** BigInt(decimals);
+  const whole = abs / base;
+  const frac = abs % base;
+  const wholeStr = whole.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  if (frac === 0n || maxFrac <= 0) return (neg ? '-' : '') + wholeStr;
+  const fracFull = frac.toString().padStart(decimals, '0').slice(0, maxFrac).replace(/0+$/, '');
+  return (neg ? '-' : '') + (fracFull ? `${wholeStr}.${fracFull}` : wholeStr);
+}
+
+function formatAllowance(value, decimals = 18) {
+  const v = typeof value === 'bigint' ? value : BigInt(value);
+  if (v >= MAX_UINT256 / 2n) {
+    return { text: '無制限', sub: 'Unlimited (MaxUint256)', unlimited: true };
+  }
+  if (v === 0n) {
+    return { text: '0 (承認なし)', sub: null, unlimited: false };
+  }
+  return { text: `${formatUnits(v, decimals)} CAW`, sub: null, unlimited: false };
+}
+
+function shortAddr(addr) {
+  if (!addr || addr.length < 12) return String(addr || '');
+  return `${addr.slice(0, 8)}...${addr.slice(-6)}`;
+}
+
+// --- lib/rpc.js ---
+// Minimal JSON-RPC client with chainId verification and adaptive chunked eth_getLogs.
+
+class RpcError extends Error {
+  constructor(message, { code, status } = {}) {
+    super(message);
+    this.name = 'RpcError';
+    this.code = code;
+    this.status = status;
+  }
+}
+
+function createRpcClient(url, { expectedChainId, timeoutMs = 12_000, fetchImpl = globalThis.fetch } = {}) {
+  if (!url || (!url.startsWith('https://') && !url.startsWith('http://'))) {
+    throw new Error('RPC URL must start with https:// or http://');
+  }
+  let nextId = 1;
+  let chainVerified = false;
+
+  async function callRaw(method, params = []) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const res = await fetchImpl(url, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ jsonrpc: '2.0', id: nextId++, method, params }),
+        signal: controller.signal,
+      });
+      if (!res.ok) {
+        const txt = await res.text().catch(() => '');
+        throw new RpcError(`HTTP ${res.status} from RPC: ${txt.slice(0, 140)}`, { status: res.status });
+      }
+      const data = await res.json();
+      if (data?.error) {
+        throw new RpcError(`RPC error (${data.error.code ?? 'unknown'}): ${data.error.message ?? 'unknown'}`, {
+          code: data.error.code,
+        });
+      }
+      return data.result;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  async function ensureChainId() {
+    if (chainVerified || !expectedChainId) return;
+    const hexId = await callRaw('eth_chainId');
+    const actual = Number(BigInt(hexId));
+    if (actual !== expectedChainId) {
+      throw new RpcError(`RPC chainId mismatch: expected ${expectedChainId}, got ${actual}`);
+    }
+    chainVerified = true;
+  }
+
+  async function getBlockNumber() {
+    await ensureChainId();
+    const hex = await callRaw('eth_blockNumber');
+    return Number(BigInt(hex));
+  }
+
+  async function getCode(address) {
+    await ensureChainId();
+    return callRaw('eth_getCode', [address, 'latest']);
+  }
+
+  async function ethCall(to, data) {
+    await ensureChainId();
+    return callRaw('eth_call', [{ to, data }, 'latest']);
+  }
+
+  function isRangeLimitError(err) {
+    if (err?.status === 413) return true;
+    const msg = String(err?.message || '').toLowerCase();
+    return (
+      msg.includes('range') ||
+      msg.includes('too large') ||
+      msg.includes('exceed') ||
+      msg.includes('limit') ||
+      msg.includes('more than')
+    );
+  }
+
+  // Scans [fromBlock, toBlock] newest-first with adaptive chunk shrinking on RPC range caps.
+  async function getLogsChunked({ address, topics, fromBlock, toBlock, initialChunk = 45_000, minChunk = 200, maxChunks = 40 }) {
+    await ensureChainId();
+    const logs = [];
+    let cursor = Math.max(0, toBlock);
+    const floor = Math.max(0, fromBlock);
+    let chunk = Math.max(minChunk, initialChunk);
+    let chunksUsed = 0;
+    let truncated = false;
+
+    while (cursor >= floor) {
+      if (chunksUsed >= maxChunks) {
+        truncated = true;
+        break;
+      }
+      const start = Math.max(floor, cursor - chunk + 1);
+      try {
+        const res = await callRaw('eth_getLogs', [{
+          address,
+          topics,
+          fromBlock: '0x' + start.toString(16),
+          toBlock: '0x' + cursor.toString(16),
+        }]);
+        if (Array.isArray(res)) logs.push(...res);
+        cursor = start - 1;
+        chunksUsed++;
+      } catch (err) {
+        if (isRangeLimitError(err) && chunk > minChunk) {
+          chunk = Math.max(minChunk, Math.floor(chunk / 4));
+          continue;
+        }
+        throw err;
+      }
+    }
+
+    // Sort chronologically (blockNumber, logIndex)
+    logs.sort((a, b) => {
+      const ba = Number(BigInt(a.blockNumber || '0x0'));
+      const bb = Number(BigInt(b.blockNumber || '0x0'));
+      if (ba !== bb) return ba - bb;
+      return Number(BigInt(a.logIndex || '0x0')) - Number(BigInt(b.logIndex || '0x0'));
+    });
+
+    return {
+      logs,
+      scannedFrom: Math.max(floor, cursor + 1),
+      scannedTo: toBlock,
+      chunksUsed,
+      truncated,
+    };
+  }
+
+  return {
+    url,
+    callRaw,
+    ensureChainId,
+    getBlockNumber,
+    getCode,
+    ethCall,
+    getLogsChunked,
+  };
+}
+
+// --- lib/rescue.js ---
+// Read-only rescue inspection logic built strictly over L1 & L2 JSON-RPC calls.
+async function resolveTarget(l1Rpc, rawInput, contractsL1) {
+  const trimmed = String(rawInput || '').trim();
+  if (!trimmed) {
+    throw new Error('ウォレットアドレス、@username、または tokenId を入力してください');
+  }
+
+  if (isValidAddress(trimmed)) {
+    return {
+      address: normalizeAddress(trimmed),
+      resolvedVia: 'address',
+      tokenId: null,
+      username: null,
+    };
+  }
+
+  const tokenMatch = trimmed.match(/^#?(\d+)$/);
+  if (tokenMatch) {
+    const tokenId = Number(tokenMatch[1]);
+    if (!Number.isInteger(tokenId) || tokenId <= 0) {
+      throw new Error('tokenId は 1 以上の整数を指定してください');
+    }
+    const res = await l1Rpc.ethCall(
+      contractsL1.CawProfile,
+      encodeUintArgCall(SELECTORS.ownerOf, tokenId),
+    );
+    const owner = decodeSingleAddress(res);
+    if (!owner || owner === ZERO_ADDRESS) {
+      throw new Error(`tokenId #${tokenId} のオーナーが見つかりませんでした`);
+    }
+    return {
+      address: owner,
+      resolvedVia: 'tokenId',
+      tokenId,
+      username: null,
+    };
+  }
+
+  const username = trimmed.replace(/^@/, '').toLowerCase();
+  const res = await l1Rpc.ethCall(
+    contractsL1.CawProfileLens,
+    encodeStringArgCall(SELECTORS.tokenByUsername, username),
+  );
+  const token = decodeLensToken(res);
+  if (!token.tokenId || token.owner === ZERO_ADDRESS) {
+    throw new Error(`@${username} に該当するプロフィールが L1 で見つかりませんでした`);
+  }
+  return {
+    address: token.owner,
+    resolvedVia: 'username',
+    tokenId: token.tokenId,
+    username: token.username || username,
+  };
+}
+
+function summarizeSmartEoaLogs(logs) {
+  const passkeys = new Map(); // pubkeyHash -> { status, validFrom, blockNumber }
+  let lastFallback = null;
+
+  for (const log of logs) {
+    const topic0 = (log.topics?.[0] || '').toLowerCase();
+    const blockNumber = Number(BigInt(log.blockNumber || '0x0'));
+    if (topic0 === TOPICS.PasskeyAdded) {
+      const hash = (log.topics?.[1] || '').toLowerCase();
+      const validFrom = log.data && log.data !== '0x' ? Number(BigInt(log.data)) : 0;
+      passkeys.set(hash, { status: 'pending', validFrom, blockNumber });
+    } else if (topic0 === TOPICS.PasskeyActivated) {
+      const hash = (log.topics?.[1] || '').toLowerCase();
+      const prev = passkeys.get(hash) || {};
+      passkeys.set(hash, { ...prev, status: 'active', validFrom: 0, blockNumber });
+    } else if (topic0 === TOPICS.PasskeyRemoved) {
+      const hash = (log.topics?.[1] || '').toLowerCase();
+      passkeys.set(hash, { status: 'removed', validFrom: 0, blockNumber });
+    } else if (topic0 === TOPICS.PasskeyCancelled) {
+      const hash = (log.topics?.[1] || '').toLowerCase();
+      passkeys.set(hash, { status: 'cancelled', validFrom: 0, blockNumber });
+    } else if (topic0 === TOPICS.EcdsaFallbackRotated) {
+      const t1 = log.topics?.[1];
+      if (t1 && t1.length >= 42) {
+        lastFallback = '0x' + t1.slice(-40).toLowerCase();
+      }
+    }
+  }
+
+  return {
+    passkeys: Array.from(passkeys.entries()).map(([hash, info]) => ({ hash, ...info })),
+    lastFallback,
+  };
+}
+
+async function inspectChainDelegation(rpc, address, expectedSmartEoa, lookbackBlocks) {
+  const [blockNumber, codeHex] = await Promise.all([
+    rpc.getBlockNumber(),
+    rpc.getCode(address),
+  ]);
+  const parsed = parseEip7702Code(codeHex);
+  const expected = normalizeAddress(expectedSmartEoa);
+  const matchesOfficial = parsed.delegated && parsed.delegate === expected;
+
+  let managementNonce = null;
+  let executeNonce = null;
+  let eventSummary = null;
+  let logError = null;
+  let logTruncated = false;
+
+  if (parsed.delegated) {
+    const [mRes, eRes] = await Promise.all([
+      rpc.ethCall(address, SELECTORS.managementNonceOf).catch(() => null),
+      rpc.ethCall(address, SELECTORS.executeNonceOf).catch(() => null),
+    ]);
+    if (mRes && strip0x(mRes).length >= 64) managementNonce = Number(decodeSingleUint(mRes));
+    if (eRes && strip0x(eRes).length >= 64) executeNonce = Number(decodeSingleUint(eRes));
+
+    if (lookbackBlocks > 0) {
+      try {
+        const res = await rpc.getLogsChunked({
+          address,
+          topics: [[
+            TOPICS.PasskeyAdded,
+            TOPICS.PasskeyActivated,
+            TOPICS.PasskeyRemoved,
+            TOPICS.PasskeyCancelled,
+            TOPICS.EcdsaFallbackRotated,
+          ]],
+          fromBlock: Math.max(0, blockNumber - lookbackBlocks),
+          toBlock: blockNumber,
+        });
+        eventSummary = summarizeSmartEoaLogs(res.logs);
+        logTruncated = res.truncated;
+      } catch (err) {
+        logError = err?.message || String(err);
+      }
+    }
+  }
+
+  return {
+    blockNumber,
+    ...parsed,
+    expectedSmartEoa: expected,
+    matchesOfficial,
+    managementNonce,
+    executeNonce,
+    eventSummary,
+    logError,
+    logTruncated,
+  };
+}
+
+async function inspectAccountSecurity(l1Rpc, l2Rpc, owner, contracts, { lookbackBlocks = 50_000, extraSpenders = [] } = {}) {
+  const [l1Delegation, l2Delegation, cawBalanceHex, decimalsHex, symbolHex] = await Promise.all([
+    inspectChainDelegation(l1Rpc, owner, contracts.L1.SmartEOA, lookbackBlocks),
+    inspectChainDelegation(l2Rpc, owner, contracts.L2.SmartEOA, lookbackBlocks),
+    l1Rpc.ethCall(contracts.L1.MintableCaw, encodeAddressArgCall(SELECTORS.balanceOf, owner)),
+    l1Rpc.ethCall(contracts.L1.MintableCaw, SELECTORS.decimals).catch(() => '0x12'),
+    l1Rpc.ethCall(contracts.L1.MintableCaw, SELECTORS.symbol).catch(() => ''),
+  ]);
+
+  const spenders = [
+    { label: 'CawProfileMinter', address: normalizeAddress(contracts.L1.CawProfileMinter) },
+    { label: 'CawProfile', address: normalizeAddress(contracts.L1.CawProfile) },
+    { label: 'CawProfileMarketplace', address: normalizeAddress(contracts.L1.CawProfileMarketplace) },
+  ];
+  for (const s of extraSpenders) {
+    if (isValidAddress(s)) {
+      const norm = normalizeAddress(s);
+      if (!spenders.some(x => x.address === norm)) {
+        spenders.push({ label: 'Custom Spender', address: norm });
+      }
+    }
+  }
+
+  const allowances = await Promise.all(
+    spenders.map(async s => {
+      const hex = await l1Rpc.ethCall(
+        contracts.L1.MintableCaw,
+        encodeAddressAddressCall(SELECTORS.allowance, owner, s.address),
+      );
+      const amount = decodeSingleUint(hex);
+      return {
+        ...s,
+        amount,
+        unlimited: amount >= MAX_UINT256 / 2n,
+      };
+    }),
+  );
+
+  return {
+    l1Delegation,
+    l2Delegation,
+    caw: {
+      address: normalizeAddress(contracts.L1.MintableCaw),
+      symbol: decodeSingleString(symbolHex) || 'CAW',
+      decimals: Number(decodeSingleUint(decimalsHex) || 18n),
+      walletBalance: decodeSingleUint(cawBalanceHex),
+    },
+    allowances,
+  };
+}
+
+async function inspectProfiles(l1Rpc, l2Rpc, owner, networkId, contracts) {
+  const hex = await l1Rpc.ethCall(
+    contracts.L1.CawProfileLens,
+    encodeAddressUintCall(SELECTORS.profilesWithNetworkState, owner, networkId),
+  );
+  const profiles = decodeProfilesWithNetworkState(hex);
+
+  const enriched = await Promise.all(
+    profiles.map(async p => {
+      const [l2BalHex, l2OwnerHex, sponsorRepayHex] = await Promise.all([
+        l2Rpc.ethCall(contracts.L2.CawProfileLedger, encodeUintArgCall(SELECTORS.cawBalanceOf, p.tokenId)),
+        l2Rpc.ethCall(contracts.L2.CawProfileLedger, encodeUintArgCall(SELECTORS.ownerOf, p.tokenId)).catch(() => null),
+        l2Rpc.ethCall(contracts.L2.CawProfileLedger, encodeUintArgCall(SELECTORS.sponsorRepay, p.tokenId)).catch(() => '0x0'),
+      ]);
+      const l2Owner = l2OwnerHex ? decodeSingleAddress(l2OwnerHex) : null;
+      return {
+        ...p,
+        l2Balance: decodeSingleUint(l2BalHex),
+        l2Owner,
+        ownerSynced: l2Owner !== null && l2Owner === p.owner,
+        sponsorRepay: decodeSingleUint(sponsorRepayHex),
+      };
+    }),
+  );
+
+  return enriched;
+}
+
+async function inspectSessions(l2Rpc, owner, l2BlockNumber, contracts, { lookbackBlocks = 100_000, extraSessionKeys = [], nowSec = Math.floor(Date.now() / 1000) } = {}) {
+  const [epochHex, nonceHex] = await Promise.all([
+    l2Rpc.ethCall(contracts.L2.CawProfileLedger, encodeAddressArgCall(SELECTORS.ownerSessionEpoch, owner)),
+    l2Rpc.ethCall(contracts.L2.CawProfileLedger, encodeAddressArgCall(SELECTORS.sessionNonce, owner)),
+  ]);
+
+  const ownerTopic = '0x' + padAddress(owner);
+  const historyMap = new Map(); // sessionKey -> { createdAtBlock, revokedAtBlock }
+  let logError = null;
+  let logTruncated = false;
+
+  if (lookbackBlocks > 0) {
+    try {
+      const res = await l2Rpc.getLogsChunked({
+        address: contracts.L2.CawProfileLedger,
+        topics: [[TOPICS.SessionCreated, TOPICS.SessionRevoked], ownerTopic],
+        fromBlock: Math.max(0, l2BlockNumber - lookbackBlocks),
+        toBlock: l2BlockNumber,
+      });
+      logTruncated = res.truncated;
+      for (const log of res.logs) {
+        const t0 = (log.topics?.[0] || '').toLowerCase();
+        const t2 = log.topics?.[2];
+        if (!t2 || t2.length < 42) continue;
+        const key = '0x' + t2.slice(-40).toLowerCase();
+        const block = Number(BigInt(log.blockNumber || '0x0'));
+        const cur = historyMap.get(key) || { createdAtBlock: null, revokedAtBlock: null };
+        if (t0 === TOPICS.SessionCreated) cur.createdAtBlock = block;
+        if (t0 === TOPICS.SessionRevoked) cur.revokedAtBlock = block;
+        historyMap.set(key, cur);
+      }
+    } catch (err) {
+      logError = err?.message || String(err);
+    }
+  }
+
+  for (const rawKey of extraSessionKeys) {
+    if (isValidAddress(rawKey)) {
+      const k = normalizeAddress(rawKey);
+      if (!historyMap.has(k)) {
+        historyMap.set(k, { createdAtBlock: null, revokedAtBlock: null, manual: true });
+      }
+    }
+  }
+
+  const keys = Array.from(historyMap.keys());
+  const sessions = await Promise.all(
+    keys.map(async sessionKey => {
+      const [validHex, spentHex] = await Promise.all([
+        l2Rpc.ethCall(contracts.L2.CawProfileLedger, encodeAddressAddressCall(SELECTORS.validSession, owner, sessionKey)),
+        l2Rpc.ethCall(contracts.L2.CawActions, encodeAddressAddressCall(SELECTORS.sessionSpent, owner, sessionKey)),
+      ]);
+      const stored = decodeStoredSession(validHex);
+      const spent = decodeSingleUint(spentHex);
+      const hist = historyMap.get(sessionKey);
+
+      let status = 'inactive';
+      if (stored.expiry === 0) {
+        status = hist?.revokedAtBlock ? 'revoked' : hist?.createdAtBlock ? 'invalidated' : 'not_found';
+      } else if (stored.expiry <= nowSec) {
+        status = 'expired';
+      } else {
+        status = 'active';
+      }
+
+      return {
+        sessionKey,
+        status,
+        ...stored,
+        scopes: decodeScopeBitmap(stored.scopeBitmap),
+        spent,
+        history: hist,
+      };
+    }),
+  );
+
+  sessions.sort((a, b) => {
+    const rank = s => (s === 'active' ? 0 : s === 'expired' ? 1 : 2);
+    return rank(a.status) - rank(b.status) || b.expiry - a.expiry;
+  });
+
+  return {
+    ownerSessionEpoch: Number(decodeSingleUint(epochHex)),
+    sessionNonce: Number(decodeSingleUint(nonceHex)),
+    sessions,
+    logError,
+    logTruncated,
+  };
+}
+
+async function inspectMarketplace(l1Rpc, owner, contracts, { maxScanIds = 150, nowSec = Math.floor(Date.now() / 1000) } = {}) {
+  const mp = contracts.L1.CawProfileMarketplace;
+  const [ethPayoutHex, cawPayoutHex, nextOfferHex, nextListingHex] = await Promise.all([
+    l1Rpc.ethCall(mp, encodeAddressArgCall(SELECTORS.pendingPayouts, owner)),
+    l1Rpc.ethCall(mp, encodeAddressAddressCall(SELECTORS.pendingTokenPayouts, owner, contracts.L1.MintableCaw)),
+    l1Rpc.ethCall(mp, SELECTORS.nextOfferId),
+    l1Rpc.ethCall(mp, SELECTORS.nextListingId),
+  ]);
+
+  const nextOfferId = Number(decodeSingleUint(nextOfferHex));
+  const nextListingId = Number(decodeSingleUint(nextListingHex));
+
+  const offerStart = Math.max(1, nextOfferId - maxScanIds);
+  const offerIds = [];
+  for (let id = offerStart; id < nextOfferId; id++) offerIds.push(id);
+
+  const listingStart = Math.max(1, nextListingId - maxScanIds);
+  const listingIds = [];
+  for (let id = listingStart; id < nextListingId; id++) listingIds.push(id);
+
+  const [offerRows, listingRows] = await Promise.all([
+    Promise.all(
+      offerIds.map(async id => {
+        const hex = await l1Rpc.ethCall(mp, encodeUintArgCall(SELECTORS.offers, id));
+        const o = decodeOffer(hex);
+        return { offerId: id, ...o, expired: o.expiry > 0 && o.expiry <= nowSec };
+      }),
+    ),
+    Promise.all(
+      listingIds.map(async id => {
+        const [listHex, retHex] = await Promise.all([
+          l1Rpc.ethCall(mp, encodeUintArgCall(SELECTORS.listings, id)),
+          l1Rpc.ethCall(mp, encodeAddressUintCall(SELECTORS.pendingReturns, owner, id)),
+        ]);
+        const l = decodeListing(listHex);
+        return {
+          listingId: id,
+          ...l,
+          pendingReturn: decodeSingleUint(retHex),
+        };
+      }),
+    ),
+  ]);
+
+  return {
+    pendingEthPayout: decodeSingleUint(ethPayoutHex),
+    pendingCawPayout: decodeSingleUint(cawPayoutHex),
+    nextOfferId,
+    nextListingId,
+    offerScanTruncated: offerStart > 1,
+    listingScanTruncated: listingStart > 1,
+    myActiveOffers: offerRows.filter(o => o.active && o.offerer === owner),
+    myActiveListings: listingRows.filter(l => l.active && l.seller === owner),
+    refundableBids: listingRows.filter(l => l.pendingReturn > 0n),
+  };
+}
+
+// --- lib/i18n.js ---
+// Bilingual UI dictionary (Japanese / English) matching caw-node-portal's toggle style.
+
+const I18N = {
+  ja: {
+    subtitle: 'ノード API を使わず、L1 / L2 RPC へ直接照会してウォレット・権限・残高・未回収分を点検するツール（試作版 / Testnet）',
+    pill_readonly: 'Read-Only',
+    pill_zerobackend: 'Zero Backend',
+    target_label_prefix: '対象アカウント（ウォレットアドレス ',
+    target_label_mid: ' / ',
+    target_label_suffix: '）',
+    target_placeholder: '例: 0x... または @alice または 3',
+    btn_inspect: 'オンチェーン照会',
+    adv_summary: 'RPC・走査範囲・手動確認オプション',
+    lbl_l1_rpc: 'L1 RPC URL (Ethereum Sepolia / chainId 11155111)',
+    lbl_l2_rpc: 'L2 RPC URL (Base Sepolia / chainId 84532)',
+    lbl_network_id: 'Network ID',
+    lbl_log_blocks: 'イベント遡りブロック数（Session / Passkey）',
+    opt_20k: '直近 20,000 ブロック（軽量）',
+    opt_100k: '直近 100,000 ブロック（L2 約5.5時間）',
+    opt_500k: '直近 500,000 ブロック（L2 約1日強）',
+    opt_1500k: '直近 1,500,000 ブロック（L2 約3.5日）',
+    opt_0: 'ログ走査しない（RPC負荷最小）',
+    lbl_extra_sessions: '追加で確認したい Session Key（カンマ区切り・任意）',
+    lbl_extra_spenders: '追加で確認したい ERC-20 Spender（カンマ区切り・任意）',
+    status_querying: 'L1 / L2 RPC へ照会中...',
+    status_fetching: 'オーナーアドレス {addr} の L1 / L2 状態を取得中...',
+    err_prefix: '照会エラー: ',
+    h_summary: 'ひと目チェック（アカウント健全性サマリー）',
+    sub_summary: '初めて見る場合はまずこの5項目だけ確認してください',
+    h_sec1: '1. アカウント・権限セキュリティ（L1 / L2）',
+    sub_sec1: 'EIP-7702 委任先 / SmartEOA Passkey 履歴 / CAW Approve',
+    h_sec2: '2. 保有プロフィール ＆ L1 / L2 残高突合',
+    sub_sec2: 'CawProfileLens (L1) ＋ CawProfileLedger (L2)',
+    h_sec3: '3. L2 セッション鍵（Quick Sign）',
+    sub_sec3: '有効期限・許可スコープ・使用枠',
+    h_sec4: '4. Marketplace 未回収資金・入札返金・オファー（L1）',
+    sub_sec4: 'CawProfileMarketplace 直接照会（表示のみ）',
+    h_transp: '参照コントラクト・透明性情報',
+    sub_transp: 'コミット 97cd13f3（testnet 定義）',
+    footer_note: 'このページはブラウザから指定された L1 / L2 RPC へ直接読み取り専用（eth_call / eth_getCode / eth_getLogs）で通信します。秘密鍵や署名要求・資金回収操作は一切行いません。',
+    // Dynamic summary
+    sum1_title: '1. ウォレット委任 (EIP-7702)',
+    sum1_eoa_st: '良好：通常のウォレット',
+    sum1_eoa_desc: 'L1 / L2 ともに外部コントラクトへの委任設定はありません。',
+    sum1_ok_st: '良好：CAW 公式 SmartEOA',
+    sum1_ok_desc: 'Passkey 等に使う CAW 公式の SmartEOA へ正しく委任されています。',
+    sum1_warn_st: '要確認：CAW 以外の委任あり',
+    sum1_warn_desc: 'MetaMask 等のスマートアカウント機能でも設定されます。下の委任先アドレスに見覚えがあるか確認してください。',
+    sum2_title: '2. トークン引き落とし許可',
+    sum2_none_st: '良好：承認残高なし',
+    sum2_none_desc: 'どのコントラクトにも CAW の自動引き落とし許可は残っていません。',
+    sum2_unlim_st: '注意：無制限の許可が {n} 件',
+    sum2_unlim_desc: '公式の登録・売買コントラクトでは通常利用時に設定されることがありますが、使わない場合は別ツール等で 0 に戻せます。',
+    sum2_part_st: '一部あり ({n} 件・上限付き)',
+    sum2_part_desc: '上限額付きで許可されています。見覚えのない Spender が無いか確認してください。',
+    sum3_title: '3. プロフィール L1/L2 同期',
+    sum3_empty_st: '保有プロフィールなし',
+    sum3_empty_desc: 'このウォレットが L1 で所有する CAW プロフィール NFT はありません。',
+    sum3_ok_st: '良好：全 {n} 件が一致',
+    sum3_ok_desc_w: 'L1/L2 の所有者情報は一致。うち {w} 件に L1 出金可能額があります。',
+    sum3_ok_desc: 'L1 と L2 の所有者情報がすべて一致しています。',
+    sum3_warn_st: '同期待ち：{u} 件にズレ',
+    sum3_warn_desc: 'L1 での売買・譲渡直後は L2 反映に時間がかかるため一時的にズレることがあります。',
+    sum4_title: '4. L2 セッション鍵 (Quick Sign)',
+    sum4_skip_st: '一部未走査',
+    sum4_skip_err: 'ログ取得に失敗したため、手動入力した鍵のみ確認しました。',
+    sum4_skip_off: 'ログ走査がオフです。必要なら詳細設定から範囲を選んでください。',
+    sum4_ok_st: '良好：有効な鍵なし',
+    sum4_ok_desc: '直近 {b} ブロック内で有効なセッション鍵は見つかりませんでした。',
+    sum4_warn_st: '使用中：有効な鍵が {n} 件',
+    sum4_warn_desc: '自分の端末で使っている鍵なら問題ありません。古い端末や心当たりのない鍵は無効化対象です。',
+    sum5_title: '5. Marketplace 未回収資金',
+    sum5_warn_st: '回収対象あり ({parts})',
+    sum5_warn_desc: '下の「4. Marketplace」に状態を確認できる残高・オファーがあります（※この画面は表示専用です）。',
+    sum5_ok_st: '良好：取り残し資金なし',
+    sum5_ok_desc: '未請求の売却益・入札返金・期限切れオファーは見つかりませんでした。',
+    part_payout: '未請求の売上',
+    part_bids: '入札返金 {n} 件',
+    part_offers: '期限切れオファー {n} 件',
+    // Resolved card
+    via_address: 'ウォレットアドレスを直接入力',
+    via_username: '@{u} から L1 所有者を逆引き',
+    via_tokenId: 'tokenId #{id} から L1 所有者を逆引き',
+    res_owner: '照会中のウォレットアドレス',
+    res_via: '解決方法: ',
+    res_l1_desc: '主に NFT 本体・CAW 残高・Marketplace を管轄',
+    res_l2_desc: 'Network ID: {nid}（投稿・日常利用残高・Quick Sign）',
+    // Section 1
+    del_eoa: '未委任（通常の EOA）',
+    del_eoa_desc: 'スマートアカウント機能は付いていない通常のウォレット状態です。',
+    del_off: 'CAW 公式 SmartEOA へ委任済み',
+    del_off_desc: 'Passkey 等に対応する CAW 公式コントラクトへ委任されています。',
+    del_other: 'CAW SmartEOA 以外へ委任中（要確認）',
+    del_other_desc: 'CAW 公式 SmartEOA 以外のコントラクトへ委任されています（MetaMask 等のスマートアカウント機能でも設定されます）。心当たりがあるか確認してください。',
+    del_contract: 'コントラクトアドレス ({b} bytes)',
+    del_contract_desc: '通常の個人ウォレット（EOA）ではなく、Safe 等のスマートコントラクトウォレットです。',
+    del_nonces: '管理操作回数 (managementNonce): {m} / 実行回数 (executeNonce): {e}',
+    del_passkeys: '直近ログ観測: Passkey 有効={a} / 待機中={p}',
+    del_fallback: ' / 直近 Fallback={f}',
+    del_trunc: ' (※走査上限で打ち切り)',
+    del_log_err: 'Passkey ログ取得エラー: ',
+    l1_del_lbl: 'L1 EIP-7702 委任状態',
+    l2_del_lbl: 'L2 EIP-7702 委任状態',
+    sec_guide: 'ウォレットが意図しないコントラクトへ委任（EIP-7702）されていないか、またウォレット内の {sym} を動かせる許可（Approve）がどこに残っているかを確認します。',
+    l1_caw_bal: 'L1 ウォレット内の {sym} 残高',
+    l1_caw_desc: 'L2 に預ける前の、あなた自身の L1 ウォレットにある残高です。',
+    th_spender: 'Approve 対象',
+    th_contract: 'コントラクトアドレス',
+    th_allowance: '現在の許可額 (Allowance)',
+    th_meaning: '意味・健全性の目安',
+    allow_unlim: '無制限',
+    allow_unlim_sub: 'Unlimited (MaxUint256)',
+    allow_zero: '0 (承認なし)',
+    mean_custom_pos: '手動指定アドレスに許可あり（信頼先か確認）',
+    mean_custom_zero: '許可なし（安全）',
+    mean_off_unlim: 'CAW 公式契約（ミントや出品時に自動で無制限設定されることがありますが、不要なら 0 に戻せます）',
+    mean_off_pos: 'CAW 公式契約に対する上限付き許可',
+    mean_off_zero: '許可なし（引き落とし不可）',
+    // Section 2
+    prof_guide_empty: 'L1 のプロフィール NFT と L2 上の投稿用残高の整合性を確認します。',
+    prof_empty: 'L1 でこのアドレスが所有するプロフィール NFT は見つかりませんでした。',
+    prof_guide: 'L1（NFT 所有権・出金窓口）と L2（投稿用の預け入れ残高）が正しく噛み合っているかを表示します。通常時は「認証済み」「L1/L2 一致」「未ロック」が健全な状態です。',
+    sync_ok: 'L1/L2 一致（正常）',
+    sync_warn: 'ズレあり (L2: {addr})',
+    unreflected: '未反映',
+    auth_ok: '認証済み（投稿可）',
+    auth_no: '未認証',
+    lock_on: '{amt} {sym} ロック中',
+    lock_off: '未ロック（通常）',
+    l2_bal_sub: '投稿・チップに使える残高',
+    w_avail: 'L1 で出金対象額あり（操作は L1 側で実行）',
+    w_none: '引き出し待機分なし',
+    repay_none: '0（返済なし）',
+    th_prof: 'プロフィール',
+    th_auth: 'Network Auth',
+    th_auth_sub: '投稿参加状態',
+    th_sync: '所有権同期',
+    th_sync_sub: 'L1 と L2 の名義一致',
+    th_l2bal: 'L2 残高',
+    th_l2bal_sub: 'アプリ内残高',
+    th_wdraw: 'L1 出金可能額',
+    th_wdraw_sub: 'withdrawable',
+    th_lock: '出金手数料ロック',
+    th_lock_sub: '通常は未ロック',
+    th_repay: 'Sponsor 返済残',
+    th_repay_sub: '0 なら完済/通常',
+    // Section 3
+    sess_guide: 'Quick Sign 用の「一時セッション鍵」の一覧です。セッション鍵は投稿やいいね等を代理署名できますが、L1 からの資産引き出し（WITHDRAW）はできません。',
+    sess_counter_note: 'ownerSessionEpoch: {ep}（所有権移転時に古い鍵を無効化する世代番号） / sessionNonce: {nc}（使い回し防止連番）は管理用カウンタであり、数字があること自体は正常です。',
+    sess_trunc: '※ 走査ブロック上限に達したため、さらに過去のセッション履歴は含まれていません。',
+    sess_log_err: 'SessionCreated ログ取得エラー: {err}（詳細欄に Session Key を直接入力すれば個別照会できます）',
+    sess_empty: '走査範囲内でセッション鍵は見つかりませんでした（より古い鍵を調べたい場合は上の「イベント遡りブロック数」を広げるか Session Key を直接入力してください）。',
+    st_active: '有効',
+    st_active_note: 'この鍵で現在も代理投稿が可能。見覚えのない端末なら Revoke 対象。',
+    st_expired: '期限切れ',
+    st_expired_note: '期限を過ぎているため悪用できません。',
+    st_revoked: 'Revoke 済み',
+    st_revoked_note: 'すでに無効化済みで安全です。',
+    st_invalid: '失効済み',
+    st_invalid_note: '名義変更または無効化済みで使えません。',
+    st_unreg: '未登録',
+    st_unreg_note: 'このオーナーには登録されていません。',
+    scope_all: '全保有プロフィール',
+    scope_one: '#{id} 限定',
+    limit_unlim: '無制限 (0)',
+    th_s_state: '状態・意味',
+    th_s_key: 'Session Key',
+    th_s_exp: '有効期限',
+    th_s_scope: '対象範囲',
+    th_s_acts: '許可スコープ',
+    th_s_spent: '利用済み / 上限',
+    // Section 4
+    mp_guide: 'ノード UI の不具合で見えなくなっていても、L1 Marketplace コントラクト上に「未引き出しの売上」「入札返金」「期限切れオファーの預け金」が残っていないかを確認します（状態表示専用です）。',
+    mp_eth_pay: '未請求の売却益 (ETH)',
+    mp_caw_pay: '未請求の売却益 ({sym})',
+    mp_claimable: '（L1 側で引き出し可）',
+    mp_total: '照会した L1 累計件数',
+    mp_h_offers: '保留中オファー（自分が提出）',
+    mp_no_offers: '保留中の自分のオファーはありません。',
+    mp_h_bids: '返金可能な入札金（pendingReturns）',
+    mp_no_bids: '返金待ちの入札金はありません。',
+    mp_h_listings: '出品中リスティング',
+    offer_exp: '期限切れ — 返金対象 (cancelOffer)',
+    offer_act: '有効中（回答待ち）',
+    bid_act: 'オークション進行中（競り負け返金あり）',
+    bid_end: '終了済み — 返金対象 (withdrawBid)',
+    th_oid: 'Offer ID',
+    th_lid: 'Listing ID',
+    th_tok: 'Token',
+    th_dep: '預託額',
+    th_exp: '有効期限',
+    th_st: '状態',
+    th_ref: '返金額',
+    th_ltype: '種別',
+    th_startp: '開始価格',
+    th_hbid: '最高入札',
+  },
+  en: {
+    subtitle: 'Node-independent on-chain account checker querying L1 / L2 RPC directly from your browser (Prototype / Testnet)',
+    pill_readonly: 'Read-Only',
+    pill_zerobackend: 'Zero Backend',
+    target_label_prefix: 'Account to inspect (wallet address ',
+    target_label_mid: ' / ',
+    target_label_suffix: ')',
+    target_placeholder: 'e.g. 0x..., @alice, or 3',
+    btn_inspect: 'Inspect On-Chain',
+    adv_summary: 'RPC, scan range & manual lookup options',
+    lbl_l1_rpc: 'L1 RPC URL (Ethereum Sepolia / chainId 11155111)',
+    lbl_l2_rpc: 'L2 RPC URL (Base Sepolia / chainId 84532)',
+    lbl_network_id: 'Network ID',
+    lbl_log_blocks: 'Event lookback blocks (Sessions / Passkeys)',
+    opt_20k: 'Last 20,000 blocks (light)',
+    opt_100k: 'Last 100,000 blocks (~5.5h on L2)',
+    opt_500k: 'Last 500,000 blocks (~1.1 days on L2)',
+    opt_1500k: 'Last 1,500,000 blocks (~3.5 days on L2)',
+    opt_0: 'Skip log scan (minimal RPC calls)',
+    lbl_extra_sessions: 'Additional Session Keys to check (comma-separated, optional)',
+    lbl_extra_spenders: 'Additional ERC-20 Spenders to check (comma-separated, optional)',
+    status_querying: 'Querying L1 / L2 RPC...',
+    status_fetching: 'Fetching L1 / L2 on-chain state for {addr}...',
+    err_prefix: 'Query error: ',
+    h_summary: 'Quick Health Summary',
+    sub_summary: 'Start with these 5 checks if this is your first time here',
+    h_sec1: '1. Account & Permission Security (L1 / L2)',
+    sub_sec1: 'EIP-7702 Delegation / SmartEOA Passkey Logs / CAW Allowances',
+    h_sec2: '2. Owned Profiles & L1 / L2 Balance Sync',
+    sub_sec2: 'CawProfileLens (L1) + CawProfileLedger (L2)',
+    h_sec3: '3. L2 Session Keys (Quick Sign)',
+    sub_sec3: 'Expiry, action scope, and spend caps',
+    h_sec4: '4. Marketplace Unclaimed Funds, Refunds & Offers (L1)',
+    sub_sec4: 'Direct CawProfileMarketplace check (display only)',
+    h_transp: 'Contracts & Transparency',
+    sub_transp: 'Commit 97cd13f3 (testnet addresses)',
+    footer_note: 'This page talks read-only directly to the L1 / L2 RPC endpoints you specify (eth_call / eth_getCode / eth_getLogs). It never asks for private keys, signatures, or transactions.',
+    // Dynamic summary
+    sum1_title: '1. Wallet Delegation (EIP-7702)',
+    sum1_eoa_st: 'Healthy: Standard EOA',
+    sum1_eoa_desc: 'No external smart-account delegation is set on L1 or L2.',
+    sum1_ok_st: 'Healthy: Official CAW SmartEOA',
+    sum1_ok_desc: 'Delegated to the reference CAW SmartEOA contract (used for Passkeys, etc.).',
+    sum1_warn_st: 'Check: Non-CAW Delegation',
+    sum1_warn_desc: 'This can also appear when using MetaMask smart-account features. Verify that you recognize the delegate address below.',
+    sum2_title: '2. Token Allowances (Approve)',
+    sum2_none_st: 'Healthy: No Active Allowances',
+    sum2_none_desc: 'No checked contract currently has permission to move CAW from this wallet.',
+    sum2_unlim_st: 'Notice: {n} Unlimited Allowance(s)',
+    sum2_unlim_desc: 'Official mint/marketplace flows often request unlimited approval. If unused, you can reset it to 0 via a wallet/contract tool.',
+    sum2_part_st: 'Active ({n} capped allowance(s))',
+    sum2_part_desc: 'Capped approvals exist. Make sure you recognize every listed spender.',
+    sum3_title: '3. Profile L1/L2 Sync',
+    sum3_empty_st: 'No Profiles Owned',
+    sum3_empty_desc: 'This wallet currently owns no CAW profile NFTs on L1.',
+    sum3_ok_st: 'Healthy: All {n} Synced',
+    sum3_ok_desc_w: 'L1 and L2 owners match. {w} profile(s) have L1 withdrawable CAW.',
+    sum3_ok_desc: 'L1 and L2 ownership match for all profiles.',
+    sum3_warn_st: 'Sync Pending: {u} Mismatch(es)',
+    sum3_warn_desc: 'Right after an L1 sale or transfer, L2 ownership updates can take a short while to arrive.',
+    sum4_title: '4. L2 Session Keys (Quick Sign)',
+    sum4_skip_st: 'Partially Scanned',
+    sum4_skip_err: 'Log scan failed; only manually entered session keys were checked.',
+    sum4_skip_off: 'Log scan is turned off. Pick a block range above to scan.',
+    sum4_ok_st: 'Healthy: No Active Keys',
+    sum4_ok_desc: 'No active session keys found in the last {b} blocks.',
+    sum4_warn_st: 'Active: {n} Session Key(s)',
+    sum4_warn_desc: 'Expected if you use Quick Sign on your device. Consider revoking keys from old or unrecognized devices.',
+    sum5_title: '5. Marketplace Unclaimed Funds',
+    sum5_warn_st: 'Claimable Items ({parts})',
+    sum5_warn_desc: 'See Section 4 below for details (this page is read-only).',
+    sum5_ok_st: 'Healthy: Nothing Left Unclaimed',
+    sum5_ok_desc: 'No pending payouts, bid refunds, or expired offers found.',
+    part_payout: 'unclaimed payouts',
+    part_bids: '{n} bid refund(s)',
+    part_offers: '{n} expired offer(s)',
+    // Resolved card
+    via_address: 'Direct wallet address',
+    via_username: 'Resolved on L1 from @{u}',
+    via_tokenId: 'Resolved on L1 from tokenId #{id}',
+    res_owner: 'Resolved Owner Address',
+    res_via: 'Lookup: ',
+    res_l1_desc: 'Holds NFT ownership, CAW token balances & Marketplace',
+    res_l2_desc: 'Network ID: {nid} (posts, action balances & Quick Sign)',
+    // Section 1
+    del_eoa: 'Not Delegated (Standard EOA)',
+    del_eoa_desc: 'Plain wallet with no EIP-7702 smart-account code attached.',
+    del_off: 'Delegated to Official CAW SmartEOA',
+    del_off_desc: 'Points to the reference CAW SmartEOA implementation (Passkeys, etc.).',
+    del_other: 'Delegated Elsewhere (Check Address)',
+    del_other_desc: 'Delegated to a contract other than CAW SmartEOA (for example MetaMask smart-account delegation). Confirm you recognize this delegate.',
+    del_contract: 'Contract Address ({b} bytes)',
+    del_contract_desc: 'This address has smart contract code (e.g. Safe), not a plain EOA.',
+    del_nonces: 'managementNonce: {m} / executeNonce: {e}',
+    del_passkeys: 'Recent logs: Passkeys active={a} / pending={p}',
+    del_fallback: ' / latest Fallback={f}',
+    del_trunc: ' (truncated at scan cap)',
+    del_log_err: 'Passkey log fetch failed: ',
+    l1_del_lbl: 'L1 EIP-7702 Status',
+    l2_del_lbl: 'L2 EIP-7702 Status',
+    sec_guide: 'Checks whether the wallet is delegated to an unexpected contract (EIP-7702) and which contracts have ERC-20 allowance to spend {sym}.',
+    l1_caw_bal: 'L1 Wallet {sym} Balance',
+    l1_caw_desc: 'Liquid balance held directly in your L1 wallet (not deposited to L2).',
+    th_spender: 'Spender',
+    th_contract: 'Contract Address',
+    th_allowance: 'Current Allowance',
+    th_meaning: 'Meaning & Notes',
+    allow_unlim: 'Unlimited',
+    allow_unlim_sub: 'MaxUint256',
+    allow_zero: '0 (None)',
+    mean_custom_pos: 'Custom spender has allowance (verify trust)',
+    mean_custom_zero: 'No allowance (safe)',
+    mean_off_unlim: 'Official CAW contract (standard flows often set unlimited approval; can be reset to 0 when unused)',
+    mean_off_pos: 'Capped allowance to an official CAW contract',
+    mean_off_zero: 'No allowance (cannot pull tokens)',
+    // Section 2
+    prof_guide_empty: 'Compares L1 profile NFT ownership with L2 balances.',
+    prof_empty: 'No CAW profile NFTs owned by this address on L1.',
+    prof_guide: 'Compares L1 (NFT ownership & withdrawal queue) with L2 (usable balance for posts & tips). Normal steady state is Authenticated, L1/L2 Matched, and Unlocked.',
+    sync_ok: 'L1/L2 Matched',
+    sync_warn: 'Mismatch (L2: {addr})',
+    unreflected: 'not synced yet',
+    auth_ok: 'Authenticated',
+    auth_no: 'Not Authenticated',
+    lock_on: '{amt} {sym} Locked',
+    lock_off: 'Unlocked (Normal)',
+    l2_bal_sub: 'Available for posts & tips',
+    w_avail: 'Ready to withdraw on L1 (claim via wallet/L1)',
+    w_none: 'None queued',
+    repay_none: '0 (None)',
+    th_prof: 'Profile',
+    th_auth: 'Network Auth',
+    th_auth_sub: 'Can post on network',
+    th_sync: 'Ownership Sync',
+    th_sync_sub: 'L1 vs L2 owner match',
+    th_l2bal: 'L2 Balance',
+    th_l2bal_sub: 'In-app action balance',
+    th_wdraw: 'L1 Withdrawable',
+    th_wdraw_sub: 'withdrawable',
+    th_lock: 'Withdraw Fee Lock',
+    th_lock_sub: 'Normal is unlocked',
+    th_repay: 'Sponsor Repay',
+    th_repay_sub: '0 means repaid / none',
+    // Section 3
+    sess_guide: 'Temporary Quick Sign keys on L2. Session keys can sign posts/likes/etc., but can NEVER withdraw funds from L1 (WITHDRAW is blocked).',
+    sess_counter_note: 'ownerSessionEpoch: {ep} (bumps on ownership transfer to invalidate old keys) / sessionNonce: {nc} (anti-replay counter) are normal protocol counters.',
+    sess_trunc: 'Note: Log scan cap reached; older session events are not included.',
+    sess_log_err: 'SessionCreated log fetch failed: {err} (you can still inspect specific keys manually above)',
+    sess_empty: 'No session keys found in the scanned block window (widen the lookback range above or enter a Session Key manually).',
+    st_active: 'Active',
+    st_active_note: 'Can currently sign actions. Revoke if from an unrecognized or lost device.',
+    st_expired: 'Expired',
+    st_expired_note: 'Past expiry; can no longer be used.',
+    st_revoked: 'Revoked',
+    st_revoked_note: 'Already revoked on-chain.',
+    st_invalid: 'Invalidated',
+    st_invalid_note: 'Invalidated by ownership transfer or revocation.',
+    st_unreg: 'Not Found',
+    st_unreg_note: 'Not registered for this owner.',
+    scope_all: 'All Owned Profiles',
+    scope_one: 'Profile #{id} Only',
+    limit_unlim: 'Unlimited (0)',
+    th_s_state: 'Status & Meaning',
+    th_s_key: 'Session Key',
+    th_s_exp: 'Expiry',
+    th_s_scope: 'Profile Scope',
+    th_s_acts: 'Allowed Actions',
+    th_s_spent: 'Spent / Limit',
+    // Section 4
+    mp_guide: 'Directly checks L1 CawProfileMarketplace for unclaimed sale proceeds, outbid auction refunds, or active/expired offers even if a node UI fails to show them (display only).',
+    mp_eth_pay: 'Unclaimed Sale Proceeds (ETH)',
+    mp_caw_pay: 'Unclaimed Sale Proceeds ({sym})',
+    mp_claimable: '(claimable on L1)',
+    mp_total: 'Scanned L1 Totals',
+    mp_h_offers: 'Pending Offers (Submitted by Owner)',
+    mp_no_offers: 'No active or uncancelled offers found for this address.',
+    mp_h_bids: 'Refundable Auction Bids (pendingReturns)',
+    mp_no_bids: 'No refundable auction bids found.',
+    mp_h_listings: 'Active Listings',
+    offer_exp: 'Expired — Refundable via cancelOffer',
+    offer_act: 'Active (awaiting seller)',
+    bid_act: 'Auction active (outbid refund available)',
+    bid_end: 'Ended — Refundable via withdrawBid',
+    th_oid: 'Offer ID',
+    th_lid: 'Listing ID',
+    th_tok: 'Token',
+    th_dep: 'Escrowed Amount',
+    th_exp: 'Expiry',
+    th_st: 'Status',
+    th_ref: 'Refundable',
+    th_ltype: 'Type',
+    th_startp: 'Start Price',
+    th_hbid: 'Highest Bid',
+  },
+};
+
+function formatI18n(lang, key, vars = {}) {
+  const dict = I18N[lang] || I18N.ja;
+  let str = dict[key] ?? I18N.ja[key] ?? key;
+  for (const [k, v] of Object.entries(vars)) {
+    str = str.replaceAll(`{${k}}`, String(v ?? ''));
+  }
+  return str;
+}
+
+// --- app.js ---
+const preset = NETWORK_PRESETS.testnet;
+const LANG_KEY = 'caw-account-check:lang';
+
+let lang = (() => {
+  try {
+    const saved = localStorage.getItem(LANG_KEY);
+    if (saved === 'ja' || saved === 'en') return saved;
+  } catch {}
+  return (typeof navigator !== 'undefined' && navigator.language?.toLowerCase().startsWith('ja'))
+    ? 'ja'
+    : 'en';
+})();
+
+let lastSnapshot = null;
+
+const form = document.getElementById('inspect-form');
+const targetInput = document.getElementById('target-input');
+const l1RpcInput = document.getElementById('l1-rpc');
+const l2RpcInput = document.getElementById('l2-rpc');
+const networkIdInput = document.getElementById('network-id');
+const logBlocksSelect = document.getElementById('log-blocks');
+const extraSessionKeysInput = document.getElementById('extra-session-keys');
+const extraSpendersInput = document.getElementById('extra-spenders');
+const inspectBtn = document.getElementById('inspect-btn');
+const statusBar = document.getElementById('status-bar');
+const errorBox = document.getElementById('error-box');
+const resultsEl = document.getElementById('results');
+const langSeg = document.getElementById('langseg');
+
+const resolvedCard = document.getElementById('resolved-card');
+const healthSummary = document.getElementById('health-summary');
+const securitySection = document.getElementById('security-section');
+const profilesSection = document.getElementById('profiles-section');
+const sessionsSection = document.getElementById('sessions-section');
+const marketplaceSection = document.getElementById('marketplace-section');
+const transparencySection = document.getElementById('transparency-section');
+
+l1RpcInput.value = preset.l1DefaultRpc;
+l2RpcInput.value = preset.l2DefaultRpc;
+
+function t(key, vars) {
+  return formatI18n(lang, key, vars);
+}
+
+function esc(str) {
+  return String(str ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function pill(cls, text) {
+  return `<span class="pill ${cls}">${esc(text)}</span>`;
+}
+
+function fmtTimestamp(sec) {
+  if (!sec) return '-';
+  const d = new Date(sec * 1000);
+  return d.toLocaleString(lang === 'ja' ? 'ja-JP' : 'en-US');
+}
+
+function parseAddrList(raw) {
+  return String(raw || '')
+    .split(/[\s,]+/)
+    .map(s => s.trim())
+    .filter(Boolean);
+}
+
+function summarizeHealth(sec, profiles, sessData, mp, lookbackBlocks) {
+  const cards = [];
+
+  // 1. EIP-7702 delegation
+  const d1 = sec.l1Delegation;
+  const d2 = sec.l2Delegation;
+  const anyDelegated = d1.delegated || d2.delegated;
+  const anyNonOfficial = (d1.delegated && !d1.matchesOfficial) || (d2.delegated && !d2.matchesOfficial);
+  if (!anyDelegated && d1.isEoa && d2.isEoa) {
+    cards.push({ cls: 'ok', title: t('sum1_title'), status: t('sum1_eoa_st'), desc: t('sum1_eoa_desc') });
+  } else if (anyDelegated && !anyNonOfficial) {
+    cards.push({ cls: 'ok', title: t('sum1_title'), status: t('sum1_ok_st'), desc: t('sum1_ok_desc') });
+  } else {
+    cards.push({ cls: 'warn', title: t('sum1_title'), status: t('sum1_warn_st'), desc: t('sum1_warn_desc') });
+  }
+
+  // 2. Allowances
+  const unlimitedCount = sec.allowances.filter(a => a.unlimited).length;
+  const nonZeroCount = sec.allowances.filter(a => a.amount > 0n).length;
+  if (nonZeroCount === 0) {
+    cards.push({ cls: 'ok', title: t('sum2_title'), status: t('sum2_none_st'), desc: t('sum2_none_desc') });
+  } else if (unlimitedCount > 0) {
+    cards.push({ cls: 'warn', title: t('sum2_title'), status: t('sum2_unlim_st', { n: unlimitedCount }), desc: t('sum2_unlim_desc') });
+  } else {
+    cards.push({ cls: 'ok', title: t('sum2_title'), status: t('sum2_part_st', { n: nonZeroCount }), desc: t('sum2_part_desc') });
+  }
+
+  // 3. Profiles sync
+  if (profiles.length === 0) {
+    cards.push({ cls: 'ok', title: t('sum3_title'), status: t('sum3_empty_st'), desc: t('sum3_empty_desc') });
+  } else {
+    const unsynced = profiles.filter(p => !p.ownerSynced).length;
+    const withdrawableCount = profiles.filter(p => p.withdrawable > 0n).length;
+    if (unsynced === 0) {
+      cards.push({
+        cls: 'ok',
+        title: t('sum3_title'),
+        status: t('sum3_ok_st', { n: profiles.length }),
+        desc: withdrawableCount > 0 ? t('sum3_ok_desc_w', { w: withdrawableCount }) : t('sum3_ok_desc'),
+      });
+    } else {
+      cards.push({ cls: 'warn', title: t('sum3_title'), status: t('sum3_warn_st', { u: unsynced }), desc: t('sum3_warn_desc') });
+    }
+  }
+
+  // 4. L2 Sessions
+  const activeSessions = sessData.sessions.filter(s => s.status === 'active').length;
+  if (lookbackBlocks === 0 || sessData.logError) {
+    cards.push({
+      cls: 'warn',
+      title: t('sum4_title'),
+      status: t('sum4_skip_st'),
+      desc: sessData.logError ? t('sum4_skip_err') : t('sum4_skip_off'),
+    });
+  } else if (activeSessions === 0) {
+    cards.push({ cls: 'ok', title: t('sum4_title'), status: t('sum4_ok_st'), desc: t('sum4_ok_desc', { b: lookbackBlocks.toLocaleString() }) });
+  } else {
+    cards.push({ cls: 'warn', title: t('sum4_title'), status: t('sum4_warn_st', { n: activeSessions }), desc: t('sum4_warn_desc') });
+  }
+
+  // 5. Marketplace funds
+  const expiredOffers = mp.myActiveOffers.filter(o => o.expired).length;
+  const hasFunds = mp.pendingEthPayout > 0n || mp.pendingCawPayout > 0n || mp.refundableBids.length > 0 || expiredOffers > 0;
+  if (hasFunds) {
+    const parts = [];
+    if (mp.pendingEthPayout > 0n || mp.pendingCawPayout > 0n) parts.push(t('part_payout'));
+    if (mp.refundableBids.length > 0) parts.push(t('part_bids', { n: mp.refundableBids.length }));
+    if (expiredOffers > 0) parts.push(t('part_offers', { n: expiredOffers }));
+    cards.push({
+      cls: 'warn',
+      title: t('sum5_title'),
+      status: t('sum5_warn_st', { parts: parts.join(' / ') }),
+      desc: t('sum5_warn_desc'),
+    });
+  } else {
+    cards.push({ cls: 'ok', title: t('sum5_title'), status: t('sum5_ok_st'), desc: t('sum5_ok_desc') });
+  }
+
+  return cards;
+}
+
+function renderHealthSummary(cards) {
+  healthSummary.innerHTML = `<div class="sum-grid">${cards.map(c => `
+    <div class="sum-card ${esc(c.cls)}">
+      <div class="sum-title">${esc(c.title)}</div>
+      <div class="sum-status">${esc(c.status)}</div>
+      <div class="sum-desc">${esc(c.desc)}</div>
+    </div>
+  `).join('')}</div>`;
+}
+
+function renderDelegationBox(chainLabel, d) {
+  let badge = pill('ok', t('del_eoa'));
+  let meaning = esc(t('del_eoa_desc'));
+  if (d.delegated) {
+    if (d.matchesOfficial) {
+      badge = pill('ok', t('del_off'));
+      meaning = `${esc(t('del_off_desc'))}<br>delegate: <span class="mono">${esc(d.delegate)}</span>`;
+    } else {
+      badge = pill('warn', t('del_other'));
+      meaning = `${esc(t('del_other_desc'))}<br>delegate: <span class="mono">${esc(d.delegate)}</span>`;
+    }
+    if (d.managementNonce !== null || d.executeNonce !== null) {
+      meaning += `<br>${esc(t('del_nonces', { m: d.managementNonce ?? '-', e: d.executeNonce ?? '-' }))}`;
+    }
+  } else if (!d.isEoa) {
+    badge = pill('warn', t('del_contract', { b: d.codeBytes }));
+    meaning = esc(t('del_contract_desc'));
+  }
+
+  let eventsHtml = '';
+  if (d.eventSummary) {
+    const activeCount = d.eventSummary.passkeys.filter(p => p.status === 'active').length;
+    const pendingCount = d.eventSummary.passkeys.filter(p => p.status === 'pending').length;
+    let txt = t('del_passkeys', { a: activeCount, p: pendingCount });
+    if (d.eventSummary.lastFallback) txt += t('del_fallback', { f: shortAddr(d.eventSummary.lastFallback) });
+    if (d.logTruncated) txt += t('del_trunc');
+    eventsHtml = `<div class="note-line">${esc(txt)}</div>`;
+  } else if (d.logError) {
+    eventsHtml = `<div class="note-line">${esc(t('del_log_err') + d.logError)}</div>`;
+  }
+
+  return `
+    <div class="kv-box">
+      <div class="kv-k">${esc(chainLabel)} (block #${d.blockNumber.toLocaleString()})</div>
+      <div class="kv-v">${badge}</div>
+      <div class="note-line">${meaning}</div>
+      ${eventsHtml}
+    </div>
+  `;
+}
+
+function renderResolved(target, l1Block, l2Block, networkId) {
+  let viaText = t('via_address');
+  if (target.resolvedVia === 'username') viaText = t('via_username', { u: target.username });
+  if (target.resolvedVia === 'tokenId') viaText = t('via_tokenId', { id: target.tokenId });
+
+  resolvedCard.innerHTML = `
+    <div class="kv-grid">
+      <div class="kv-box">
+        <div class="kv-k">${esc(t('res_owner'))}</div>
+        <div class="kv-v mono">${esc(target.address)}</div>
+        <div class="note-line">${esc(t('res_via') + viaText)}</div>
+      </div>
+      <div class="kv-box">
+        <div class="kv-k">L1 (${esc(preset.l1ChainName)})</div>
+        <div class="kv-v">Block #${l1Block.toLocaleString()}</div>
+        <div class="note-line">${esc(t('res_l1_desc'))}</div>
+      </div>
+      <div class="kv-box">
+        <div class="kv-k">L2 (${esc(preset.l2ChainName)})</div>
+        <div class="kv-v">Block #${l2Block.toLocaleString()}</div>
+        <div class="note-line">${esc(t('res_l2_desc', { nid: networkId }))}</div>
+      </div>
+    </div>
+  `;
+}
+
+function renderSecurity(sec) {
+  const { decimals, symbol, walletBalance } = sec.caw;
+  const rows = sec.allowances.map(a => {
+    const fmt = formatAllowance(a.amount, decimals);
+    const label = fmt.unlimited
+      ? t('allow_unlim')
+      : a.amount === 0n
+        ? t('allow_zero')
+        : `${formatUnits(a.amount, decimals)} ${symbol}`;
+    const sub = fmt.unlimited ? t('allow_unlim_sub') : null;
+    const badge = fmt.unlimited
+      ? pill('warn', label)
+      : a.amount > 0n
+        ? pill('', label)
+        : pill('ok', label);
+    const meaning = a.label === 'Custom Spender'
+      ? (a.amount > 0n ? t('mean_custom_pos') : t('mean_custom_zero'))
+      : fmt.unlimited
+        ? t('mean_off_unlim')
+        : a.amount > 0n
+          ? t('mean_off_pos')
+          : t('mean_off_zero');
+    return `
+      <tr>
+        <td>${esc(a.label)}</td>
+        <td class="mono">${esc(a.address)}</td>
+        <td class="nowrap">${badge}${sub ? `<span class="hint-sub">${esc(sub)}</span>` : ''}</td>
+        <td>${esc(meaning)}</td>
+      </tr>
+    `;
+  }).join('');
+
+  securitySection.innerHTML = `
+    <div class="sec-guide">${esc(t('sec_guide', { sym: symbol }))}</div>
+    <div class="kv-grid">
+      ${renderDelegationBox(t('l1_del_lbl'), sec.l1Delegation)}
+      ${renderDelegationBox(t('l2_del_lbl'), sec.l2Delegation)}
+      <div class="kv-box">
+        <div class="kv-k">${esc(t('l1_caw_bal', { sym: symbol }))}</div>
+        <div class="kv-v">${esc(formatUnits(walletBalance, decimals))} ${esc(symbol)}</div>
+        <div class="note-line">${esc(t('l1_caw_desc'))}</div>
+      </div>
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr><th>${esc(t('th_spender'))}</th><th>${esc(t('th_contract'))}</th><th>${esc(t('th_allowance'))}</th><th>${esc(t('th_meaning'))}</th></tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+  `;
+}
+
+function renderProfiles(profiles, decimals, symbol) {
+  if (profiles.length === 0) {
+    profilesSection.innerHTML = `
+      <div class="sec-guide">${esc(t('prof_guide_empty'))}</div>
+      <p class="empty">${esc(t('prof_empty'))}</p>
+    `;
+    return;
+  }
+  const rows = profiles.map(p => {
+    const syncBadge = p.ownerSynced
+      ? pill('ok', t('sync_ok'))
+      : pill('warn', t('sync_warn', { addr: p.l2Owner ? shortAddr(p.l2Owner) : t('unreflected') }));
+    const authBadge = p.authenticated ? pill('ok', t('auth_ok')) : pill('', t('auth_no'));
+    const feeLock = p.withdrawFeeLocked
+      ? pill('warn', t('lock_on', { amt: formatUnits(p.lockedWithdrawFee, decimals), sym: symbol }))
+      : pill('ok', t('lock_off'));
+    return `
+      <tr>
+        <td>#${p.tokenId} <b>@${esc(p.username)}</b></td>
+        <td>${authBadge}</td>
+        <td>${syncBadge}</td>
+        <td>${esc(formatUnits(p.l2Balance, decimals))} ${esc(symbol)}<span class="hint-sub">${esc(t('l2_bal_sub'))}</span></td>
+        <td>${esc(formatUnits(p.withdrawable, decimals))} ${esc(symbol)}<span class="hint-sub">${esc(p.withdrawable > 0n ? t('w_avail') : t('w_none'))}</span></td>
+        <td>${feeLock}</td>
+        <td>${p.sponsorRepay > 0n ? `${esc(formatUnits(p.sponsorRepay, decimals))} ${esc(symbol)}` : esc(t('repay_none'))}</td>
+      </tr>
+    `;
+  }).join('');
+
+  profilesSection.innerHTML = `
+    <div class="sec-guide">${esc(t('prof_guide'))}</div>
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>${esc(t('th_prof'))}</th>
+            <th>${esc(t('th_auth'))}<span class="hint-sub">${esc(t('th_auth_sub'))}</span></th>
+            <th>${esc(t('th_sync'))}<span class="hint-sub">${esc(t('th_sync_sub'))}</span></th>
+            <th>${esc(t('th_l2bal'))}<span class="hint-sub">${esc(t('th_l2bal_sub'))}</span></th>
+            <th>${esc(t('th_wdraw'))}<span class="hint-sub">${esc(t('th_wdraw_sub'))}</span></th>
+            <th>${esc(t('th_lock'))}<span class="hint-sub">${esc(t('th_lock_sub'))}</span></th>
+            <th>${esc(t('th_repay'))}<span class="hint-sub">${esc(t('th_repay_sub'))}</span></th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+  `;
+}
+
+function renderSessions(sessData, _decimals, symbol) {
+  const header = `
+    <div class="sec-guide">
+      ${esc(t('sess_guide'))}<br>
+      ${esc(t('sess_counter_note', { ep: sessData.ownerSessionEpoch, nc: sessData.sessionNonce }))}${sessData.logTruncated ? `<br><b>${esc(t('sess_trunc'))}</b>` : ''}
+    </div>
+  `;
+  const logErr = sessData.logError
+    ? `<div class="error-box">${esc(t('sess_log_err', { err: sessData.logError }))}</div>`
+    : '';
+
+  if (sessData.sessions.length === 0) {
+    sessionsSection.innerHTML = `${header}${logErr}<p class="empty">${esc(t('sess_empty'))}</p>`;
+    return;
+  }
+
+  const statusMeta = s => {
+    if (s === 'active') return { badge: pill('ok', t('st_active')), note: t('st_active_note') };
+    if (s === 'expired') return { badge: pill('warn', t('st_expired')), note: t('st_expired_note') };
+    if (s === 'revoked') return { badge: pill('', t('st_revoked')), note: t('st_revoked_note') };
+    if (s === 'invalidated') return { badge: pill('', t('st_invalid')), note: t('st_invalid_note') };
+    return { badge: pill('', t('st_unreg')), note: t('st_unreg_note') };
+  };
+
+  const rows = sessData.sessions.map(s => {
+    const scope = s.scopes.length ? s.scopes.join(', ') : '-';
+    const profileScope = s.profileId === 0 ? t('scope_all') : t('scope_one', { id: s.profileId });
+    const spentStr = `${s.spent.toLocaleString()} / ${s.spendLimit === 0n ? t('limit_unlim') : s.spendLimit.toLocaleString()} ${symbol}`;
+    const meta = statusMeta(s.status);
+    return `
+      <tr>
+        <td>${meta.badge}<span class="hint-sub">${esc(meta.note)}</span></td>
+        <td class="mono">${esc(s.sessionKey)}</td>
+        <td>${esc(fmtTimestamp(s.expiry))}</td>
+        <td>${esc(profileScope)}</td>
+        <td>${esc(scope)}</td>
+        <td>${esc(spentStr)}</td>
+      </tr>
+    `;
+  }).join('');
+
+  sessionsSection.innerHTML = `
+    ${header}${logErr}
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>${esc(t('th_s_state'))}</th>
+            <th>${esc(t('th_s_key'))}</th>
+            <th>${esc(t('th_s_exp'))}</th>
+            <th>${esc(t('th_s_scope'))}</th>
+            <th>${esc(t('th_s_acts'))}</th>
+            <th>${esc(t('th_s_spent'))}</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+  `;
+}
+
+function fmtPaymentAmount(amount, paymentToken, cawDecimals, cawSymbol) {
+  if (paymentToken === ZERO_ADDRESS) {
+    return `${formatUnits(amount, 18)} ETH`;
+  }
+  if (paymentToken.toLowerCase() === preset.contracts.L1.MintableCaw.toLowerCase()) {
+    return `${formatUnits(amount, cawDecimals)} ${cawSymbol}`;
+  }
+  return `${formatUnits(amount, 18)} (${shortAddr(paymentToken)})`;
+}
+
+function renderMarketplace(mp, decimals, symbol) {
+  const offersRows = mp.myActiveOffers.map(o => `
+    <tr>
+      <td>#${o.offerId}</td>
+      <td>#${o.tokenId}</td>
+      <td>${esc(fmtPaymentAmount(o.amount, o.paymentToken, decimals, symbol))}</td>
+      <td>${esc(fmtTimestamp(o.expiry))}</td>
+      <td>${o.expired ? pill('warn', t('offer_exp')) : pill('ok', t('offer_act'))}</td>
+    </tr>
+  `).join('');
+
+  const bidRows = mp.refundableBids.map(b => `
+    <tr>
+      <td>#${b.listingId}</td>
+      <td>#${b.tokenId}</td>
+      <td>${esc(formatUnits(b.pendingReturn, 18))} ETH</td>
+      <td>${b.active ? pill('warn', t('bid_act')) : pill('warn', t('bid_end'))}</td>
+    </tr>
+  `).join('');
+
+  const listingRows = mp.myActiveListings.map(l => `
+    <tr>
+      <td>#${l.listingId}</td>
+      <td>#${l.tokenId}</td>
+      <td>${esc(l.listingType)}</td>
+      <td>${esc(fmtPaymentAmount(l.startPrice, l.paymentToken, decimals, symbol))}</td>
+      <td>${l.highestBid > 0n ? esc(fmtPaymentAmount(l.highestBid, l.paymentToken, decimals, symbol)) : '-'}</td>
+    </tr>
+  `).join('');
+
+  marketplaceSection.innerHTML = `
+    <div class="sec-guide">${esc(t('mp_guide'))}</div>
+    <div class="kv-grid">
+      <div class="kv-box">
+        <div class="kv-k">${esc(t('mp_eth_pay'))}</div>
+        <div class="kv-v">${mp.pendingEthPayout > 0n ? pill('warn', `${formatUnits(mp.pendingEthPayout, 18)} ETH ${t('mp_claimable')}`) : `${esc(formatUnits(mp.pendingEthPayout, 18))} ETH`}</div>
+      </div>
+      <div class="kv-box">
+        <div class="kv-k">${esc(t('mp_caw_pay', { sym: symbol }))}</div>
+        <div class="kv-v">${mp.pendingCawPayout > 0n ? pill('warn', `${formatUnits(mp.pendingCawPayout, decimals)} ${symbol} ${t('mp_claimable')}`) : `${esc(formatUnits(mp.pendingCawPayout, decimals))} ${esc(symbol)}`}</div>
+      </div>
+      <div class="kv-box">
+        <div class="kv-k">${esc(t('mp_total'))}</div>
+        <div class="kv-v">Offers: ${Math.max(0, mp.nextOfferId - 1)} / Listings: ${Math.max(0, mp.nextListingId - 1)}</div>
+      </div>
+    </div>
+    ${offersRows ? `
+      <h3>${esc(t('mp_h_offers'))}</h3>
+      <div class="tbl-wrap"><table><thead><tr><th>${esc(t('th_oid'))}</th><th>${esc(t('th_tok'))}</th><th>${esc(t('th_dep'))}</th><th>${esc(t('th_exp'))}</th><th>${esc(t('th_st'))}</th></tr></thead><tbody>${offersRows}</tbody></table></div>
+    ` : `<p class="empty">${esc(t('mp_no_offers'))}</p>`}
+    ${bidRows ? `
+      <h3>${esc(t('mp_h_bids'))}</h3>
+      <div class="tbl-wrap"><table><thead><tr><th>${esc(t('th_lid'))}</th><th>${esc(t('th_tok'))}</th><th>${esc(t('th_ref'))}</th><th>${esc(t('th_st'))}</th></tr></thead><tbody>${bidRows}</tbody></table></div>
+    ` : `<p class="empty">${esc(t('mp_no_bids'))}</p>`}
+    ${listingRows ? `
+      <h3>${esc(t('mp_h_listings'))}</h3>
+      <div class="tbl-wrap"><table><thead><tr><th>${esc(t('th_lid'))}</th><th>${esc(t('th_tok'))}</th><th>${esc(t('th_ltype'))}</th><th>${esc(t('th_startp'))}</th><th>${esc(t('th_hbid'))}</th></tr></thead><tbody>${listingRows}</tbody></table></div>
+    ` : ''}
+  `;
+}
+
+function renderTransparency(l1Url, l2Url) {
+  const rows = [
+    ['L1 RPC', l1Url],
+    ['L2 RPC', l2Url],
+    ['L1 MintableCaw', preset.contracts.L1.MintableCaw],
+    ['L1 CawProfile', preset.contracts.L1.CawProfile],
+    ['L1 CawProfileLens', preset.contracts.L1.CawProfileLens],
+    ['L1 CawProfileMinter', preset.contracts.L1.CawProfileMinter],
+    ['L1 CawProfileMarketplace', preset.contracts.L1.CawProfileMarketplace],
+    ['L1/L2 SmartEOA', preset.contracts.L1.SmartEOA],
+    ['L2 CawProfileLedger', preset.contracts.L2.CawProfileLedger],
+    ['L2 CawActions', preset.contracts.L2.CawActions],
+  ].map(([k, v]) => `<tr><td>${esc(k)}</td><td class="mono">${esc(v)}</td></tr>`).join('');
+
+  transparencySection.innerHTML = `<div class="tbl-wrap"><table><tbody>${rows}</tbody></table></div>`;
+}
+
+function renderAllSnapshot() {
+  if (!lastSnapshot) return;
+  const { target, security, profiles, sessions, marketplace, l2Block, networkId, lookbackBlocks, l1Url, l2Url } = lastSnapshot;
+  const summaryCards = summarizeHealth(security, profiles, sessions, marketplace, lookbackBlocks);
+  renderResolved(target, security.l1Delegation.blockNumber, l2Block, networkId);
+  renderHealthSummary(summaryCards);
+  renderSecurity(security);
+  renderProfiles(profiles, security.caw.decimals, security.caw.symbol);
+  renderSessions(sessions, security.caw.decimals, security.caw.symbol);
+  renderMarketplace(marketplace, security.caw.decimals, security.caw.symbol);
+  renderTransparency(l1Url, l2Url);
+}
+
+function applyLang() {
+  document.documentElement.lang = lang;
+  for (const btn of langSeg.querySelectorAll('button[data-lang]')) {
+    btn.setAttribute('aria-pressed', btn.dataset.lang === lang ? 'true' : 'false');
+  }
+  for (const el of document.querySelectorAll('[data-i18n]')) {
+    el.textContent = t(el.dataset.i18n);
+  }
+  for (const el of document.querySelectorAll('[data-i18n-placeholder]')) {
+    el.setAttribute('placeholder', t(el.dataset.i18nPlaceholder));
+  }
+  renderAllSnapshot();
+}
+
+langSeg.addEventListener('click', (ev) => {
+  const btn = ev.target.closest('button[data-lang]');
+  if (!btn) return;
+  const next = btn.dataset.lang;
+  if (next !== 'ja' && next !== 'en') return;
+  lang = next;
+  try { localStorage.setItem(LANG_KEY, lang); } catch {}
+  applyLang();
+});
+
+applyLang();
+
+form.addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  errorBox.hidden = true;
+  resultsEl.hidden = true;
+  statusBar.hidden = false;
+  statusBar.textContent = t('status_querying');
+  inspectBtn.disabled = true;
+
+  try {
+    const l1Url = l1RpcInput.value.trim();
+    const l2Url = l2RpcInput.value.trim();
+    const networkId = Number(networkIdInput.value) || 1;
+    const lookbackBlocks = Number(logBlocksSelect.value) || 0;
+    const extraSessionKeys = parseAddrList(extraSessionKeysInput.value);
+    const extraSpenders = parseAddrList(extraSpendersInput.value);
+
+    const l1Rpc = createRpcClient(l1Url, { expectedChainId: preset.l1ChainId });
+    const l2Rpc = createRpcClient(l2Url, { expectedChainId: preset.l2ChainId });
+
+    const target = await resolveTarget(l1Rpc, targetInput.value, preset.contracts.L1);
+    statusBar.textContent = t('status_fetching', { addr: target.address });
+
+    const [security, profiles, l2Block, marketplace] = await Promise.all([
+      inspectAccountSecurity(l1Rpc, l2Rpc, target.address, preset.contracts, {
+        lookbackBlocks,
+        extraSpenders,
+      }),
+      inspectProfiles(l1Rpc, l2Rpc, target.address, networkId, preset.contracts),
+      l2Rpc.getBlockNumber(),
+      inspectMarketplace(l1Rpc, target.address, preset.contracts),
+    ]);
+
+    const sessions = await inspectSessions(l2Rpc, target.address, l2Block, preset.contracts, {
+      lookbackBlocks,
+      extraSessionKeys,
+    });
+
+    lastSnapshot = {
+      target,
+      security,
+      profiles,
+      sessions,
+      marketplace,
+      l2Block,
+      networkId,
+      lookbackBlocks,
+      l1Url,
+      l2Url,
+    };
+
+    renderAllSnapshot();
+
+    statusBar.hidden = true;
+    resultsEl.hidden = false;
+  } catch (err) {
+    statusBar.hidden = true;
+    errorBox.hidden = false;
+    errorBox.textContent = t('err_prefix') + (err?.message || String(err));
+  } finally {
+    inspectBtn.disabled = false;
+  }
+});
+
+})();
+  </script>
+</body>
+</html>
