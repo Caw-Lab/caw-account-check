@@ -21,6 +21,7 @@
   --ok: #5fd08a;
   --warn: #f0c14b;
   --bad: #ef6f8f;
+  --shadow: 0 1px 0 rgba(255,255,255,.03) inset, 0 8px 24px rgba(0,0,0,.25);
 }
 @media (prefers-color-scheme: light) {
   :root {
@@ -37,6 +38,7 @@
     --ok: #1f8f4e;
     --warn: #9a7300;
     --bad: #c23a63;
+    --shadow: 0 1px 2px rgba(20,30,50,.06), 0 6px 18px rgba(20,30,50,.06);
   }
 }
 
@@ -45,7 +47,7 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--fg);
-  font: 15px/1.6 system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif;
+  font: 15px/1.6 system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", "Yu Gothic UI", sans-serif;
 }
 a { color: var(--link); text-decoration: none; }
 a:hover { text-decoration: underline; }
@@ -53,20 +55,24 @@ code, .mono {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 0.9em;
 }
-.wrap { max-width: 1040px; margin: 0 auto; padding: 0 18px 40px; }
+.wrap { max-width: 1040px; margin: 0 auto; padding: 0 20px; }
 
 .top {
-  padding: 26px 0 14px;
+  padding: 28px 0 8px;
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  gap: 14px;
-  flex-wrap: wrap;
+  gap: 16px;
 }
-.brand h1 { margin: 0; font: 700 26px/1.2 Georgia, serif; }
+.brand { min-width: 0; }
+.brand h1 { margin: 0; font: 600 28px/1.2 Georgia, "Times New Roman", serif; letter-spacing: .01em; }
 .brand h1 span { color: var(--accent); }
-.brand p { margin: 4px 0 0; color: var(--mute); font-size: 14px; }
-.badges { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.brand p { margin: 4px 0 0; color: var(--mute); font-size: 15px; }
+.tools { display: flex; gap: 8px; align-items: center; flex-shrink: 0; margin-left: auto; }
+@media (max-width: 560px) {
+  .top { flex-wrap: wrap; gap: 10px; }
+  .brand h1 { font-size: 24px; }
+}
 .seg {
   display: inline-flex;
   border: 1px solid var(--line);
@@ -99,6 +105,7 @@ code, .mono {
   max-width: 100%;
   overflow-wrap: anywhere;
 }
+.pill.beta { border-radius: 999px; border-color: color-mix(in srgb, var(--accent) 55%, transparent); color: var(--accent); cursor: help; white-space: nowrap; }
 .pill.ok { border-color: color-mix(in srgb, var(--ok) 45%, transparent); color: var(--ok); }
 .pill.info { border-color: color-mix(in srgb, var(--link) 45%, transparent); color: var(--link); }
 .pill.warn { border-color: color-mix(in srgb, var(--warn) 50%, transparent); color: var(--warn); }
@@ -107,10 +114,12 @@ code, .mono {
 .card {
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: 14px;
-  padding: 16px 18px;
-  margin-bottom: 16px;
+  border-radius: 16px;
+  padding: 16px 20px;
+  margin-bottom: 18px;
+  box-shadow: var(--shadow);
 }
+.query-card { margin-top: 18px; }
 
 .input-row { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
 .grow { flex: 1 1 320px; }
@@ -171,7 +180,7 @@ details.advanced summary { cursor: pointer; color: var(--mute); font-size: 13px;
   border-bottom: 1px solid var(--line);
   padding-bottom: 8px;
 }
-.sec-head h2 { margin: 0; font-size: 17px; }
+.sec-head h2 { margin: 0; font-size: 18px; font-weight: 650; }
 .sec-sub { color: var(--faint); font-size: 12.5px; }
 
 .kv-grid {
@@ -293,11 +302,19 @@ tr:last-child td { border-bottom: 0; }
 .empty { color: var(--faint); font-size: 13.5px; margin: 4px 0; }
 
 footer {
-  margin-top: 20px;
-  padding-top: 12px;
+  margin: 34px 0 40px;
+  padding-top: 14px;
   border-top: 1px solid var(--line);
   color: var(--faint);
-  font-size: 12.5px;
+  font-size: 13px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.foot-links {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
 }
   </style>
 </head>
@@ -308,9 +325,8 @@ footer {
         <h1><span>CAW</span> Account Check</h1>
         <p data-i18n="subtitle"></p>
       </div>
-      <div class="badges">
-        <span class="pill" data-i18n="pill_readonly"></span>
-        <span class="pill" data-i18n="pill_zerobackend"></span>
+      <div class="tools">
+        <span class="pill beta" data-i18n="pill_beta" data-i18n-title="pill_beta_tip" tabindex="0"></span>
         <div class="seg" id="langseg" role="group" aria-label="Language">
           <button type="button" data-lang="ja">日本語</button>
           <button type="button" data-lang="en">EN</button>
@@ -425,6 +441,10 @@ footer {
 
     <footer>
       <span data-i18n="footer_note"></span>
+      <span class="foot-links">
+        <a href="https://caw-lab.github.io/caw-node-portal/" data-i18n="footer_portal"></a>
+        <a href="https://github.com/Caw-Lab/caw-account-check" target="_blank" rel="noopener noreferrer">GitHub</a>
+      </span>
     </footer>
   </div>
 
@@ -1336,9 +1356,9 @@ async function inspectMarketplace(l1Rpc, owner, contracts, { maxScanIds = 150, n
 
 const I18N = {
   ja: {
-    subtitle: 'ノード API を使わず、L1 / L2 RPC へ直接照会してウォレット・権限・残高・未回収分を点検するツール（試作版 / Testnet）',
-    pill_readonly: 'Read-Only',
-    pill_zerobackend: 'Zero Backend',
+    subtitle: 'ノード API を使わず、L1 / L2 RPC へ直接照会するアカウント点検ツール',
+    pill_beta: '試作版 / Read-Only',
+    pill_beta_tip: 'Testnet（Sepolia / Base Sepolia）向けの非公式・読み取り専用ツールです。秘密鍵や署名は不要で、バックエンドサーバーも使いません。',
     target_label_prefix: '対象アカウント（ウォレットアドレス ',
     target_label_mid: ' / ',
     target_label_suffix: '）',
@@ -1372,6 +1392,7 @@ const I18N = {
     h_transp: '参照コントラクト・透明性情報',
     sub_transp: 'コミット 97cd13f3（testnet 定義）',
     footer_note: 'ブラウザから指定された L1 / L2 RPC へ直接、読み取り専用（eth_call / eth_getCode / eth_getLogs）で通信します。秘密鍵や署名要求・資金回収操作は一切行いません。',
+    footer_portal: 'CAW Node Portal',
     // Dynamic summary
     sum1_title: '1. ウォレット委任 (EIP-7702)',
     sum1_eoa_st: '良好：通常のウォレット',
@@ -1534,9 +1555,9 @@ const I18N = {
     th_hbid: '最高入札',
   },
   en: {
-    subtitle: 'Node-independent on-chain account checker querying L1 / L2 RPC directly from your browser (Prototype / Testnet)',
-    pill_readonly: 'Read-Only',
-    pill_zerobackend: 'Zero Backend',
+    subtitle: 'Node-independent on-chain account checker over L1 / L2 RPC',
+    pill_beta: 'Beta / Read-Only',
+    pill_beta_tip: 'Unofficial read-only prototype for Testnet (Sepolia / Base Sepolia). Zero backend and never requests private keys or signatures.',
     target_label_prefix: 'Account to inspect (wallet address ',
     target_label_mid: ' / ',
     target_label_suffix: ')',
@@ -1570,6 +1591,7 @@ const I18N = {
     h_transp: 'Contracts & Transparency',
     sub_transp: 'Commit 97cd13f3 (testnet addresses)',
     footer_note: 'This page talks read-only directly to the L1 / L2 RPC endpoints you specify (eth_call / eth_getCode / eth_getLogs). It never asks for private keys, signatures, or transactions.',
+    footer_portal: 'CAW Node Portal',
     // Dynamic summary
     sum1_title: '1. Wallet Delegation (EIP-7702)',
     sum1_eoa_st: 'Healthy: Standard EOA',
@@ -2272,6 +2294,9 @@ function applyLang() {
   }
   for (const el of document.querySelectorAll('[data-i18n-placeholder]')) {
     el.setAttribute('placeholder', t(el.dataset.i18nPlaceholder));
+  }
+  for (const el of document.querySelectorAll('[data-i18n-title]')) {
+    el.setAttribute('title', t(el.dataset.i18nTitle));
   }
   renderAllSnapshot();
 }

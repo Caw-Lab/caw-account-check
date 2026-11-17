@@ -329,7 +329,7 @@ describe('lib/i18n', () => {
     assert.deepEqual(jaKeys, enKeys);
 
     const tpl = fs.readFileSync(path.resolve(import.meta.dirname, '../index.template.html'), 'utf8');
-    for (const m of tpl.matchAll(/data-i18n(?:-placeholder)?="([^"]+)"/g)) {
+    for (const m of tpl.matchAll(/data-i18n(?:-placeholder|-title)?="([^"]+)"/g)) {
       const k = m[1];
       assert.ok(k in I18N.ja, `Missing ja key: ${k}`);
       assert.ok(k in I18N.en, `Missing en key: ${k}`);

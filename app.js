@@ -540,6 +540,9 @@ function applyLang() {
   for (const el of document.querySelectorAll('[data-i18n-placeholder]')) {
     el.setAttribute('placeholder', t(el.dataset.i18nPlaceholder));
   }
+  for (const el of document.querySelectorAll('[data-i18n-title]')) {
+    el.setAttribute('title', t(el.dataset.i18nTitle));
+  }
   renderAllSnapshot();
 }
 
