@@ -3,7 +3,7 @@
 An unofficial, node-independent, read-only on-chain account checker for [CAW Protocol (V2)](https://github.com/GilgameshCaw/Caw).  
 Query Ethereum Sepolia (L1) and Base Sepolia (L2) RPC endpoints directly from your browser without talking to any CAW community node API.
 
-**Open it: https://zinsanjp.github.io/caw-account-check/**
+**Open it: https://caw-lab.github.io/caw-account-check/**
 
 *Not affiliated with or endorsed by the CAW project. Prototype for **Testnet** (`GilgameshCaw/Caw` commit `97cd13f3`).*
 
@@ -33,12 +33,12 @@ Query Ethereum Sepolia (L1) and Base Sepolia (L2) RPC endpoints directly from yo
 1. **Open directly**: Open `index.html` in a browser (`file://`).
 2. **Or serve locally**:
    ```bash
-   git clone https://github.com/Zinsanjp/caw-account-check.git
+   git clone https://github.com/caw-lab/caw-account-check.git
    cd caw-account-check
    python3 -m http.server 8787 --bind 127.0.0.1
    ```
    Then open `http://127.0.0.1:8787/`.
-3. **GitHub Pages**: Live at <https://zinsanjp.github.io/caw-account-check/> (published from the `main` branch, `/ (root)`).
+3. **GitHub Pages**: Live at <https://caw-lab.github.io/caw-account-check/> (published from the `main` branch, `/ (root)`).
 
 ## Development & Tests
 
@@ -56,7 +56,7 @@ node scripts/build-html.mjs
 
 ## 日本語ガイド
 
-**公開ページ（GitHub Pages）**: https://zinsanjp.github.io/caw-account-check/
+**公開ページ（GitHub Pages）**: https://caw-lab.github.io/caw-account-check/
 
 どのコミュニティノードの API にも依存せず、ブラウザから直接 L1 / L2 の RPC（または自分の RPC）へ問い合わせてアカウント状態を点検する、ビルド不要・読み取り専用の試作ツールです（**Sepolia / Base Sepolia Testnet・コミット `97cd13f3` 基準、非公式**）。
 
