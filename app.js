@@ -67,6 +67,12 @@ function pill(cls, text) {
   return `<span class="pill ${cls}">${esc(text)}</span>`;
 }
 
+function explorerAddrLink(explorerBase, addr) {
+  if (!explorerBase || !addr) return `<span class="mono">${esc(addr)}</span>`;
+  const url = `${explorerBase.replace(/\/$/, '')}/address/${encodeURIComponent(addr)}`;
+  return `<a class="mono" href="${esc(url)}" target="_blank" rel="noopener noreferrer">${esc(addr)} ↗</a>`;
+}
+
 function fmtTimestamp(sec) {
   if (!sec) return '-';
   const d = new Date(sec * 1000);
@@ -87,11 +93,23 @@ function summarizeHealth(sec, profiles, sessData, mp, lookbackBlocks) {
   const d1 = sec.l1Delegation;
   const d2 = sec.l2Delegation;
   const anyDelegated = d1.delegated || d2.delegated;
-  const anyNonOfficial = (d1.delegated && !d1.matchesOfficial) || (d2.delegated && !d2.matchesOfficial);
+  const anyUnknownOrContract =
+    (d1.delegated && !d1.matchesOfficial && !d1.knownDelegator) ||
+    (d2.delegated && !d2.matchesOfficial && !d2.knownDelegator) ||
+    (!d1.delegated && !d1.isEoa) ||
+    (!d2.delegated && !d2.isEoa);
+  const knownNames = [...new Set([d1.knownDelegator?.shortLabel, d2.knownDelegator?.shortLabel].filter(Boolean))];
   if (!anyDelegated && d1.isEoa && d2.isEoa) {
     cards.push({ cls: 'ok', title: t('sum1_title'), status: t('sum1_eoa_st'), desc: t('sum1_eoa_desc') });
-  } else if (anyDelegated && !anyNonOfficial) {
+  } else if (anyDelegated && !anyUnknownOrContract && knownNames.length === 0) {
     cards.push({ cls: 'ok', title: t('sum1_title'), status: t('sum1_ok_st'), desc: t('sum1_ok_desc') });
+  } else if (!anyUnknownOrContract && knownNames.length > 0) {
+    cards.push({
+      cls: 'info',
+      title: t('sum1_title'),
+      status: t('sum1_known_st', { name: knownNames.join(' / ') }),
+      desc: t('sum1_known_desc'),
+    });
   } else {
     cards.push({ cls: 'warn', title: t('sum1_title'), status: t('sum1_warn_st'), desc: t('sum1_warn_desc') });
   }
@@ -171,16 +189,20 @@ function renderHealthSummary(cards) {
   `).join('')}</div>`;
 }
 
-function renderDelegationBox(chainLabel, d) {
+function renderDelegationBox(chainLabel, explorerBase, d) {
   let badge = pill('ok', t('del_eoa'));
   let meaning = esc(t('del_eoa_desc'));
   if (d.delegated) {
+    const linkHtml = explorerAddrLink(explorerBase, d.delegate);
     if (d.matchesOfficial) {
       badge = pill('ok', t('del_off'));
-      meaning = `${esc(t('del_off_desc'))}<br>delegate: <span class="mono">${esc(d.delegate)}</span>`;
+      meaning = `${esc(t('del_off_desc'))}<br>delegate: ${linkHtml}`;
+    } else if (d.knownDelegator) {
+      badge = pill('info', t('del_known', { name: d.knownDelegator.shortLabel }));
+      meaning = `${esc(t('del_known_desc', { fullName: d.knownDelegator.label }))}<br>delegate: ${linkHtml}`;
     } else {
       badge = pill('warn', t('del_other'));
-      meaning = `${esc(t('del_other_desc'))}<br>delegate: <span class="mono">${esc(d.delegate)}</span>`;
+      meaning = `${esc(t('del_other_desc'))}<br>delegate: ${linkHtml}`;
     }
     if (d.managementNonce !== null || d.executeNonce !== null) {
       meaning += `<br>${esc(t('del_nonces', { m: d.managementNonce ?? '-', e: d.executeNonce ?? '-' }))}`;
@@ -273,8 +295,8 @@ function renderSecurity(sec) {
   securitySection.innerHTML = `
     <div class="sec-guide">${esc(t('sec_guide', { sym: symbol }))}</div>
     <div class="kv-grid">
-      ${renderDelegationBox(t('l1_del_lbl'), sec.l1Delegation)}
-      ${renderDelegationBox(t('l2_del_lbl'), sec.l2Delegation)}
+      ${renderDelegationBox(t('l1_del_lbl'), preset.l1Explorer, sec.l1Delegation)}
+      ${renderDelegationBox(t('l2_del_lbl'), preset.l2Explorer, sec.l2Delegation)}
       <div class="kv-box">
         <div class="kv-k">${esc(t('l1_caw_bal', { sym: symbol }))}</div>
         <div class="kv-v">${esc(formatUnits(walletBalance, decimals))} ${esc(symbol)}</div>

@@ -16,9 +16,9 @@ import {
   formatUnits,
   parseEip7702Code,
 } from '../lib/abi.js';
-import { MAX_UINT256, NETWORK_PRESETS, SELECTORS } from '../lib/contracts.js';
+import { findKnownDelegator, MAX_UINT256, NETWORK_PRESETS, SELECTORS } from '../lib/contracts.js';
 import { I18N, formatI18n } from '../lib/i18n.js';
-import { inspectMarketplace, inspectSessions, resolveTarget } from '../lib/rescue.js';
+import { inspectAccountSecurity, inspectMarketplace, inspectSessions, resolveTarget } from '../lib/rescue.js';
 
 function padHex32(hexWithout0x) {
   return hexWithout0x.padStart(64, '0');
@@ -266,6 +266,59 @@ describe('lib/rescue', () => {
     assert.equal(res.myActiveOffers[0].expired, true);
     assert.equal(res.refundableBids.length, 1);
     assert.equal(res.refundableBids[0].pendingReturn, 2000000000000000000n);
+  });
+
+  it('identifies known MetaMask EIP-7702 delegator and skips SmartEOA logs/nonces', async () => {
+    const owner = '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+    const metamaskDel = '63c0c19a282a1b52b07dd5a65b58948a07dae32b';
+    const smartEoaNoPrefix = preset.contracts.L2.SmartEOA.slice(2).toLowerCase();
+    let l1LogCalls = 0;
+    let l2LogCalls = 0;
+
+    const makeRpc = (code, isL1) => ({
+      async getBlockNumber() { return 1000; },
+      async getCode() { return code; },
+      async ethCall(to, data) {
+        if (data.startsWith(SELECTORS.managementNonceOf) || data.startsWith(SELECTORS.executeNonceOf)) {
+          if (code.includes(metamaskDel)) throw new Error('should not query SmartEOA nonces on non-CAW delegator');
+          return '0x' + padHex32('2');
+        }
+        if (data === SELECTORS.decimals) return '0x' + padHex32('12');
+        if (data === SELECTORS.symbol) return '0x' + padHex32('20') + padHex32('3') + padRight32('434157');
+        if (data.startsWith(SELECTORS.balanceOf) || data.startsWith(SELECTORS.allowance)) {
+          return '0x' + padHex32('0');
+        }
+        throw new Error(`unexpected ethCall ${to} ${data}`);
+      },
+      async getLogsChunked() {
+        if (isL1) l1LogCalls += 1;
+        else l2LogCalls += 1;
+        return { logs: [], truncated: false };
+      },
+    });
+
+    const sec = await inspectAccountSecurity(
+      makeRpc('0xef0100' + metamaskDel, true),
+      makeRpc('0xef0100' + smartEoaNoPrefix, false),
+      owner,
+      preset.contracts,
+      { lookbackBlocks: 1000 },
+    );
+
+    assert.equal(sec.l1Delegation.delegated, true);
+    assert.equal(sec.l1Delegation.matchesOfficial, false);
+    assert.equal(sec.l1Delegation.knownDelegator?.id, 'metamask_7702');
+    assert.equal(sec.l1Delegation.eventSummary, null);
+    assert.equal(sec.l1Delegation.managementNonce, null);
+    assert.equal(l1LogCalls, 0);
+
+    assert.equal(sec.l2Delegation.delegated, true);
+    assert.equal(sec.l2Delegation.matchesOfficial, true);
+    assert.equal(sec.l2Delegation.knownDelegator, null);
+    assert.equal(sec.l2Delegation.managementNonce, 2);
+    assert.equal(l2LogCalls, 1);
+
+    assert.equal(findKnownDelegator('0x1111111111111111111111111111111111111111'), null);
   });
 });
 

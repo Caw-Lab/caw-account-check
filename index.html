@@ -47,6 +47,8 @@ body {
   color: var(--fg);
   font: 15px/1.6 system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif;
 }
+a { color: var(--link); text-decoration: none; }
+a:hover { text-decoration: underline; }
 code, .mono {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 0.9em;
@@ -98,6 +100,7 @@ code, .mono {
   overflow-wrap: anywhere;
 }
 .pill.ok { border-color: color-mix(in srgb, var(--ok) 45%, transparent); color: var(--ok); }
+.pill.info { border-color: color-mix(in srgb, var(--link) 45%, transparent); color: var(--link); }
 .pill.warn { border-color: color-mix(in srgb, var(--warn) 50%, transparent); color: var(--warn); }
 .pill.bad { border-color: color-mix(in srgb, var(--bad) 50%, transparent); color: var(--bad); }
 
@@ -206,6 +209,7 @@ details.advanced summary { cursor: pointer; color: var(--mute); font-size: 13px;
   padding: 12px 13px;
 }
 .sum-card.ok { border-color: color-mix(in srgb, var(--ok) 45%, transparent); }
+.sum-card.info { border-color: color-mix(in srgb, var(--link) 45%, transparent); }
 .sum-card.warn { border-color: color-mix(in srgb, var(--warn) 55%, transparent); }
 .sum-card.bad { border-color: color-mix(in srgb, var(--bad) 55%, transparent); }
 .sum-title { font-size: 12px; color: var(--mute); margin-bottom: 4px; }
@@ -374,9 +378,11 @@ const NETWORK_PRESETS = {
     l1ChainId: 11155111,
     l1ChainName: 'Ethereum Sepolia',
     l1DefaultRpc: 'https://ethereum-sepolia-rpc.publicnode.com',
+    l1Explorer: 'https://sepolia.etherscan.io',
     l2ChainId: 84532,
     l2ChainName: 'Base Sepolia',
     l2DefaultRpc: 'https://base-sepolia-rpc.publicnode.com',
+    l2Explorer: 'https://sepolia.basescan.org',
     contracts: {
       L1: {
         MintableCaw: '0x56817dc696448135203C0556f702c6a953260411',
@@ -458,6 +464,20 @@ const LISTING_TYPES = ['FIXED', 'DUTCH_AUCTION', 'ENGLISH_AUCTION'];
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 const MAX_UINT256 = (1n << 256n) - 1n;
+
+// Shared EIP-7702 singleton delegators verified on-chain (non-CAW wallet smart accounts).
+const KNOWN_DELEGATORS = {
+  '0x63c0c19a282a1b52b07dd5a65b58948a07dae32b': {
+    id: 'metamask_7702',
+    label: 'MetaMask EIP-7702 Delegator (EIP7702StatelessDeleGator)',
+    shortLabel: 'MetaMask EIP-7702 Delegator',
+  },
+};
+
+function findKnownDelegator(address) {
+  if (!address) return null;
+  return KNOWN_DELEGATORS[String(address).toLowerCase()] || null;
+}
 
 // --- lib/abi.js ---
 // Minimal dependency-free ABI encoder/decoder and hex formatting helpers.
@@ -966,6 +986,7 @@ async function inspectChainDelegation(rpc, address, expectedSmartEoa, lookbackBl
   const parsed = parseEip7702Code(codeHex);
   const expected = normalizeAddress(expectedSmartEoa);
   const matchesOfficial = parsed.delegated && parsed.delegate === expected;
+  const knownDelegator = parsed.delegated && !matchesOfficial ? findKnownDelegator(parsed.delegate) : null;
 
   let managementNonce = null;
   let executeNonce = null;
@@ -973,7 +994,8 @@ async function inspectChainDelegation(rpc, address, expectedSmartEoa, lookbackBl
   let logError = null;
   let logTruncated = false;
 
-  if (parsed.delegated) {
+  // SmartEOA nonces and Passkey logs only apply when delegated to CAW's SmartEOA contract.
+  if (matchesOfficial) {
     const [mRes, eRes] = await Promise.all([
       rpc.ethCall(address, SELECTORS.managementNonceOf).catch(() => null),
       rpc.ethCall(address, SELECTORS.executeNonceOf).catch(() => null),
@@ -1008,6 +1030,7 @@ async function inspectChainDelegation(rpc, address, expectedSmartEoa, lookbackBl
     ...parsed,
     expectedSmartEoa: expected,
     matchesOfficial,
+    knownDelegator,
     managementNonce,
     executeNonce,
     eventSummary,
@@ -1289,8 +1312,10 @@ const I18N = {
     sum1_eoa_desc: 'L1 / L2 ともに外部コントラクトへの委任設定はありません。',
     sum1_ok_st: '良好：CAW 公式 SmartEOA',
     sum1_ok_desc: 'Passkey 等に使う CAW 公式の SmartEOA へ正しく委任されています。',
-    sum1_warn_st: '要確認：CAW 以外の委任あり',
-    sum1_warn_desc: 'MetaMask 等のスマートアカウント機能でも設定されます。下の委任先アドレスに見覚えがあるか確認してください。',
+    sum1_known_st: '情報：{name}',
+    sum1_known_desc: 'ウォレット公式の共通スマートアカウントコントラクトへの委任です。不審な許可ではありませんが、CAW の Passkey 機能とは併用できません。',
+    sum1_warn_st: '要確認：未登録コントラクトへ委任',
+    sum1_warn_desc: 'トークンの Approve ではなく EIP-7702 スマートアカウント委任の設定です。下の「1. アカウント・権限セキュリティ」のリンク先でコントラクト名を確認してください。',
     sum2_title: '2. トークン引き落とし許可',
     sum2_none_st: '良好：承認残高なし',
     sum2_none_desc: 'どのコントラクトにも CAW の自動引き落とし許可は残っていません。',
@@ -1335,8 +1360,10 @@ const I18N = {
     del_eoa_desc: 'スマートアカウント機能は付いていない通常のウォレット状態です。',
     del_off: 'CAW 公式 SmartEOA へ委任済み',
     del_off_desc: 'Passkey 等に対応する CAW 公式コントラクトへ委任されています。',
-    del_other: 'CAW SmartEOA 以外へ委任中（要確認）',
-    del_other_desc: 'CAW 公式 SmartEOA 以外のコントラクトへ委任されています（MetaMask 等のスマートアカウント機能でも設定されます）。心当たりがあるか確認してください。',
+    del_known: '{name} へ委任中（ウォレット公式・共通）',
+    del_known_desc: 'CAW 公式 SmartEOA ではなく、{fullName}（全ユーザー共通コントラクト）へ委任されています。通常の署名利用では問題ありませんが、CAW の Passkey 機能は併用できません。',
+    del_other: '未登録コントラクトへ EIP-7702 委任中（要確認）',
+    del_other_desc: 'CAW 公式 SmartEOA や既知のウォレット公式コントラクトに該当しないアドレスへ委任されています（トークンの Approve ではありません）。リンク先のエクスプローラーでコントラクト名を確認してください。',
     del_contract: 'コントラクトアドレス ({b} bytes)',
     del_contract_desc: '通常の個人ウォレット（EOA）ではなく、Safe 等のスマートコントラクトウォレットです。',
     del_nonces: '管理操作回数 (managementNonce): {m} / 実行回数 (executeNonce): {e}',
@@ -1483,8 +1510,10 @@ const I18N = {
     sum1_eoa_desc: 'No external smart-account delegation is set on L1 or L2.',
     sum1_ok_st: 'Healthy: Official CAW SmartEOA',
     sum1_ok_desc: 'Delegated to the reference CAW SmartEOA contract (used for Passkeys, etc.).',
-    sum1_warn_st: 'Check: Non-CAW Delegation',
-    sum1_warn_desc: 'This can also appear when using MetaMask smart-account features. Verify that you recognize the delegate address below.',
+    sum1_known_st: 'Info: {name}',
+    sum1_known_desc: 'Delegated to an official wallet smart-account singleton (shared by all users). Not suspicious, though it cannot be combined with CAW Passkeys.',
+    sum1_warn_st: 'Check: Unregistered Delegation',
+    sum1_warn_desc: 'This is an EIP-7702 smart-account delegation (not a token Approve). Open the delegate link in Section 1 below to verify the contract name.',
     sum2_title: '2. Token Allowances (Approve)',
     sum2_none_st: 'Healthy: No Active Allowances',
     sum2_none_desc: 'No checked contract currently has permission to move CAW from this wallet.',
@@ -1529,8 +1558,10 @@ const I18N = {
     del_eoa_desc: 'Plain wallet with no EIP-7702 smart-account code attached.',
     del_off: 'Delegated to Official CAW SmartEOA',
     del_off_desc: 'Points to the reference CAW SmartEOA implementation (Passkeys, etc.).',
-    del_other: 'Delegated Elsewhere (Check Address)',
-    del_other_desc: 'Delegated to a contract other than CAW SmartEOA (for example MetaMask smart-account delegation). Confirm you recognize this delegate.',
+    del_known: 'Delegated to {name} (Wallet Official Singleton)',
+    del_known_desc: 'Delegated to {fullName} (shared across all users), not CAW SmartEOA. Normal wallet signing works, though CAW Passkeys cannot be used alongside it.',
+    del_other: 'Delegated to Unregistered Contract (Check)',
+    del_other_desc: 'Delegated via EIP-7702 to an address not recognized as CAW SmartEOA or a known wallet delegator (this is not a token Approve). Open the explorer link below to verify the contract name.',
     del_contract: 'Contract Address ({b} bytes)',
     del_contract_desc: 'This address has smart contract code (e.g. Safe), not a plain EOA.',
     del_nonces: 'managementNonce: {m} / executeNonce: {e}',
@@ -1703,6 +1734,12 @@ function pill(cls, text) {
   return `<span class="pill ${cls}">${esc(text)}</span>`;
 }
 
+function explorerAddrLink(explorerBase, addr) {
+  if (!explorerBase || !addr) return `<span class="mono">${esc(addr)}</span>`;
+  const url = `${explorerBase.replace(/\/$/, '')}/address/${encodeURIComponent(addr)}`;
+  return `<a class="mono" href="${esc(url)}" target="_blank" rel="noopener noreferrer">${esc(addr)} ↗</a>`;
+}
+
 function fmtTimestamp(sec) {
   if (!sec) return '-';
   const d = new Date(sec * 1000);
@@ -1723,11 +1760,23 @@ function summarizeHealth(sec, profiles, sessData, mp, lookbackBlocks) {
   const d1 = sec.l1Delegation;
   const d2 = sec.l2Delegation;
   const anyDelegated = d1.delegated || d2.delegated;
-  const anyNonOfficial = (d1.delegated && !d1.matchesOfficial) || (d2.delegated && !d2.matchesOfficial);
+  const anyUnknownOrContract =
+    (d1.delegated && !d1.matchesOfficial && !d1.knownDelegator) ||
+    (d2.delegated && !d2.matchesOfficial && !d2.knownDelegator) ||
+    (!d1.delegated && !d1.isEoa) ||
+    (!d2.delegated && !d2.isEoa);
+  const knownNames = [...new Set([d1.knownDelegator?.shortLabel, d2.knownDelegator?.shortLabel].filter(Boolean))];
   if (!anyDelegated && d1.isEoa && d2.isEoa) {
     cards.push({ cls: 'ok', title: t('sum1_title'), status: t('sum1_eoa_st'), desc: t('sum1_eoa_desc') });
-  } else if (anyDelegated && !anyNonOfficial) {
+  } else if (anyDelegated && !anyUnknownOrContract && knownNames.length === 0) {
     cards.push({ cls: 'ok', title: t('sum1_title'), status: t('sum1_ok_st'), desc: t('sum1_ok_desc') });
+  } else if (!anyUnknownOrContract && knownNames.length > 0) {
+    cards.push({
+      cls: 'info',
+      title: t('sum1_title'),
+      status: t('sum1_known_st', { name: knownNames.join(' / ') }),
+      desc: t('sum1_known_desc'),
+    });
   } else {
     cards.push({ cls: 'warn', title: t('sum1_title'), status: t('sum1_warn_st'), desc: t('sum1_warn_desc') });
   }
@@ -1807,16 +1856,20 @@ function renderHealthSummary(cards) {
   `).join('')}</div>`;
 }
 
-function renderDelegationBox(chainLabel, d) {
+function renderDelegationBox(chainLabel, explorerBase, d) {
   let badge = pill('ok', t('del_eoa'));
   let meaning = esc(t('del_eoa_desc'));
   if (d.delegated) {
+    const linkHtml = explorerAddrLink(explorerBase, d.delegate);
     if (d.matchesOfficial) {
       badge = pill('ok', t('del_off'));
-      meaning = `${esc(t('del_off_desc'))}<br>delegate: <span class="mono">${esc(d.delegate)}</span>`;
+      meaning = `${esc(t('del_off_desc'))}<br>delegate: ${linkHtml}`;
+    } else if (d.knownDelegator) {
+      badge = pill('info', t('del_known', { name: d.knownDelegator.shortLabel }));
+      meaning = `${esc(t('del_known_desc', { fullName: d.knownDelegator.label }))}<br>delegate: ${linkHtml}`;
     } else {
       badge = pill('warn', t('del_other'));
-      meaning = `${esc(t('del_other_desc'))}<br>delegate: <span class="mono">${esc(d.delegate)}</span>`;
+      meaning = `${esc(t('del_other_desc'))}<br>delegate: ${linkHtml}`;
     }
     if (d.managementNonce !== null || d.executeNonce !== null) {
       meaning += `<br>${esc(t('del_nonces', { m: d.managementNonce ?? '-', e: d.executeNonce ?? '-' }))}`;
@@ -1909,8 +1962,8 @@ function renderSecurity(sec) {
   securitySection.innerHTML = `
     <div class="sec-guide">${esc(t('sec_guide', { sym: symbol }))}</div>
     <div class="kv-grid">
-      ${renderDelegationBox(t('l1_del_lbl'), sec.l1Delegation)}
-      ${renderDelegationBox(t('l2_del_lbl'), sec.l2Delegation)}
+      ${renderDelegationBox(t('l1_del_lbl'), preset.l1Explorer, sec.l1Delegation)}
+      ${renderDelegationBox(t('l2_del_lbl'), preset.l2Explorer, sec.l2Delegation)}
       <div class="kv-box">
         <div class="kv-k">${esc(t('l1_caw_bal', { sym: symbol }))}</div>
         <div class="kv-v">${esc(formatUnits(walletBalance, decimals))} ${esc(symbol)}</div>
