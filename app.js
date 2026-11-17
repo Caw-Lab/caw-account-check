@@ -287,10 +287,10 @@ function renderSecurity(sec) {
           : t('mean_off_zero');
     return `
       <tr>
-        <td>${esc(a.label)}</td>
-        <td class="mono">${esc(a.address)}</td>
-        <td class="nowrap">${badge}${sub ? `<span class="hint-sub">${esc(sub)}</span>` : ''}</td>
-        <td>${esc(meaning)}</td>
+        <td class="td-card-title" data-label="${esc(t('th_spender'))}">${esc(a.label)}</td>
+        <td class="mono" data-label="${esc(t('th_contract'))}">${esc(a.address)}</td>
+        <td class="nowrap" data-label="${esc(t('th_allowance'))}"><div class="td-val">${badge}${sub ? `<span class="hint-sub">${esc(sub)}</span>` : ''}</div></td>
+        <td class="td-stack" data-label="${esc(t('th_meaning'))}">${esc(meaning)}</td>
       </tr>
     `;
   }).join('');
@@ -335,13 +335,13 @@ function renderProfiles(profiles, decimals, symbol) {
       : pill('ok', t('lock_off'));
     return `
       <tr>
-        <td class="prof-cell"><span class="prof-id">#${p.tokenId}</span><b>@${esc(p.username)}</b></td>
-        <td>${authBadge}</td>
-        <td>${syncBadge}</td>
-        <td><span class="val-main">${esc(formatUnits(p.l2Balance, decimals))} ${esc(symbol)}</span><span class="hint-sub">${esc(t('l2_bal_sub'))}</span></td>
-        <td><span class="val-main">${esc(formatUnits(p.withdrawable, decimals))} ${esc(symbol)}</span><span class="hint-sub">${esc(p.withdrawable > 0n ? t('w_avail') : t('w_none'))}</span></td>
-        <td>${feeLock}</td>
-        <td class="nowrap">${p.sponsorRepay > 0n ? `${esc(formatUnits(p.sponsorRepay, decimals))} ${esc(symbol)}` : esc(t('repay_none'))}</td>
+        <td class="prof-cell td-card-title" data-label="${esc(t('th_prof'))}"><span class="prof-id">#${p.tokenId}</span><b>@${esc(p.username)}</b></td>
+        <td data-label="${esc(t('th_auth'))}">${authBadge}</td>
+        <td data-label="${esc(t('th_sync'))}">${syncBadge}</td>
+        <td data-label="${esc(t('th_l2bal'))}"><div class="td-val"><span class="val-main">${esc(formatUnits(p.l2Balance, decimals))} ${esc(symbol)}</span><span class="hint-sub">${esc(t('l2_bal_sub'))}</span></div></td>
+        <td data-label="${esc(t('th_wdraw'))}"><div class="td-val"><span class="val-main">${esc(formatUnits(p.withdrawable, decimals))} ${esc(symbol)}</span><span class="hint-sub">${esc(p.withdrawable > 0n ? t('w_avail') : t('w_none'))}</span></div></td>
+        <td data-label="${esc(t('th_lock'))}">${feeLock}</td>
+        <td class="nowrap" data-label="${esc(t('th_repay'))}">${p.sponsorRepay > 0n ? `${esc(formatUnits(p.sponsorRepay, decimals))} ${esc(symbol)}` : esc(t('repay_none'))}</td>
       </tr>
     `;
   }).join('');
@@ -398,12 +398,12 @@ function renderSessions(sessData, _decimals, symbol) {
     const meta = statusMeta(s.status);
     return `
       <tr>
-        <td>${meta.badge}<span class="hint-sub">${esc(meta.note)}</span></td>
-        <td class="mono">${esc(s.sessionKey)}</td>
-        <td>${esc(fmtTimestamp(s.expiry))}</td>
-        <td>${esc(profileScope)}</td>
-        <td>${esc(scope)}</td>
-        <td>${esc(spentStr)}</td>
+        <td class="td-stack" data-label="${esc(t('th_s_state'))}"><div class="td-val">${meta.badge}<span class="hint-sub">${esc(meta.note)}</span></div></td>
+        <td class="mono" data-label="${esc(t('th_s_key'))}">${esc(s.sessionKey)}</td>
+        <td data-label="${esc(t('th_s_exp'))}">${esc(fmtTimestamp(s.expiry))}</td>
+        <td data-label="${esc(t('th_s_scope'))}">${esc(profileScope)}</td>
+        <td data-label="${esc(t('th_s_acts'))}">${esc(scope)}</td>
+        <td data-label="${esc(t('th_s_spent'))}">${esc(spentStr)}</td>
       </tr>
     `;
   }).join('');
@@ -441,30 +441,30 @@ function fmtPaymentAmount(amount, paymentToken, cawDecimals, cawSymbol) {
 function renderMarketplace(mp, decimals, symbol) {
   const offersRows = mp.myActiveOffers.map(o => `
     <tr>
-      <td>#${o.offerId}</td>
-      <td>#${o.tokenId}</td>
-      <td>${esc(fmtPaymentAmount(o.amount, o.paymentToken, decimals, symbol))}</td>
-      <td>${esc(fmtTimestamp(o.expiry))}</td>
-      <td>${o.expired ? pill('warn', t('offer_exp')) : pill('ok', t('offer_act'))}</td>
+      <td data-label="${esc(t('th_oid'))}">#${o.offerId}</td>
+      <td data-label="${esc(t('th_tok'))}">#${o.tokenId}</td>
+      <td data-label="${esc(t('th_dep'))}">${esc(fmtPaymentAmount(o.amount, o.paymentToken, decimals, symbol))}</td>
+      <td data-label="${esc(t('th_exp'))}">${esc(fmtTimestamp(o.expiry))}</td>
+      <td data-label="${esc(t('th_st'))}">${o.expired ? pill('warn', t('offer_exp')) : pill('ok', t('offer_act'))}</td>
     </tr>
   `).join('');
 
   const bidRows = mp.refundableBids.map(b => `
     <tr>
-      <td>#${b.listingId}</td>
-      <td>#${b.tokenId}</td>
-      <td>${esc(formatUnits(b.pendingReturn, 18))} ETH</td>
-      <td>${b.active ? pill('warn', t('bid_act')) : pill('warn', t('bid_end'))}</td>
+      <td data-label="${esc(t('th_lid'))}">#${b.listingId}</td>
+      <td data-label="${esc(t('th_tok'))}">#${b.tokenId}</td>
+      <td data-label="${esc(t('th_ref'))}">${esc(formatUnits(b.pendingReturn, 18))} ETH</td>
+      <td data-label="${esc(t('th_st'))}">${b.active ? pill('warn', t('bid_act')) : pill('warn', t('bid_end'))}</td>
     </tr>
   `).join('');
 
   const listingRows = mp.myActiveListings.map(l => `
     <tr>
-      <td>#${l.listingId}</td>
-      <td>#${l.tokenId}</td>
-      <td>${esc(l.listingType)}</td>
-      <td>${esc(fmtPaymentAmount(l.startPrice, l.paymentToken, decimals, symbol))}</td>
-      <td>${l.highestBid > 0n ? esc(fmtPaymentAmount(l.highestBid, l.paymentToken, decimals, symbol)) : '-'}</td>
+      <td data-label="${esc(t('th_lid'))}">#${l.listingId}</td>
+      <td data-label="${esc(t('th_tok'))}">#${l.tokenId}</td>
+      <td data-label="${esc(t('th_ltype'))}">${esc(l.listingType)}</td>
+      <td data-label="${esc(t('th_startp'))}">${esc(fmtPaymentAmount(l.startPrice, l.paymentToken, decimals, symbol))}</td>
+      <td data-label="${esc(t('th_hbid'))}">${l.highestBid > 0n ? esc(fmtPaymentAmount(l.highestBid, l.paymentToken, decimals, symbol)) : '-'}</td>
     </tr>
   `).join('');
 
@@ -513,7 +513,7 @@ function renderTransparency(l1Url, l2Url) {
     ['L2 CawActions', preset.contracts.L2.CawActions],
   ].map(([k, v]) => `<tr><td>${esc(k)}</td><td class="mono">${esc(v)}</td></tr>`).join('');
 
-  transparencySection.innerHTML = `<div class="tbl-wrap"><table><tbody>${rows}</tbody></table></div>`;
+  transparencySection.innerHTML = `<div class="tbl-wrap"><table class="tbl-kv"><tbody>${rows}</tbody></table></div>`;
 }
 
 function renderAllSnapshot() {
