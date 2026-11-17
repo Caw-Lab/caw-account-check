@@ -280,11 +280,15 @@ details.advanced summary { cursor: pointer; color: var(--mute); font-size: 13px;
 .hint-sub { display: block; font-size: 11.5px; color: var(--faint); font-weight: 400; margin-top: 2px; }
 
 .tbl-wrap { overflow-x: auto; margin-top: 10px; }
-table { width: 100%; border-collapse: collapse; font-size: 13.5px; font-variant-numeric: tabular-nums; }
-th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+th, td { text-align: left; padding: 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
 th { color: var(--mute); font-weight: 600; font-size: 12px; white-space: nowrap; }
 td.mono { white-space: nowrap; font-size: 12.5px; }
-td.nowrap { white-space: nowrap; }
+td.nowrap, .tbl-wrap .pill { white-space: nowrap; }
+.prof-cell { white-space: nowrap; }
+.prof-id { display: inline-block; min-width: 2.2em; color: var(--mute); font-size: 12.5px; margin-right: 4px; }
+.val-main { display: inline-block; white-space: nowrap; font-weight: 600; }
+.tbl-profiles .hint-sub { white-space: nowrap; }
 tr:last-child td { border-bottom: 0; }
 .empty { color: var(--faint); font-size: 13.5px; margin: 4px 0; }
 
@@ -1454,16 +1458,16 @@ const I18N = {
     prof_guide_empty: 'L1 のプロフィール NFT と L2 上の投稿用残高の整合性を確認します。',
     prof_empty: 'L1 でこのアドレスが所有するプロフィール NFT は見つかりませんでした。',
     prof_guide: 'L1（NFT 所有権・出金窓口）と L2（投稿用の預け入れ残高）が正しく噛み合っているかを表示します。通常時は「認証済み」「L1/L2 一致」「未ロック」が健全な状態です。',
-    sync_ok: 'L1/L2 一致（正常）',
+    sync_ok: 'L1/L2 一致',
     sync_warn: 'ズレあり (L2: {addr})',
     unreflected: '未反映',
-    auth_ok: '認証済み（投稿可）',
+    auth_ok: '認証済 (投稿可)',
     auth_no: '未認証',
     lock_on: '{amt} {sym} ロック中',
-    lock_off: '未ロック（通常）',
-    l2_bal_sub: '投稿・チップに使える残高',
-    w_avail: 'L1 で出金対象額あり（操作は L1 側で実行）',
-    w_none: '引き出し待機分なし',
+    lock_off: '未ロック',
+    l2_bal_sub: '投稿・チップ用残高',
+    w_avail: 'L1 で出金可（L1 側で操作）',
+    w_none: '引き出し待機なし',
     repay_none: '0（返済なし）',
     th_prof: 'プロフィール',
     th_auth: 'Network Auth',
@@ -1479,11 +1483,11 @@ const I18N = {
     th_repay: 'Sponsor 返済残',
     th_repay_sub: '0 なら完済/通常',
     // Section 3
-    sess_guide: 'Quick Sign 用の「一時セッション鍵」の一覧です。セッション鍵は投稿やいいね等を代理署名できますが、L1 からの資産引き出し（WITHDRAW）はできません。',
+    sess_guide: 'Quick Sign 用の「一時セッション鍵」一覧です。投稿やいいね等の代理署名は可能ですが、L1 からの出金（WITHDRAW）はできません。',
     sess_counter_note: 'ownerSessionEpoch: {ep}（所有権移転時に古い鍵を無効化する世代番号） / sessionNonce: {nc}（使い回し防止連番）は管理用カウンタであり、数字があること自体は正常です。',
     sess_trunc: '※ 走査ブロック上限に達したため、さらに過去のセッション履歴は含まれていません。',
     sess_log_err: 'SessionCreated ログ取得エラー: {err}（詳細欄に Session Key を直接入力すれば個別照会できます）',
-    sess_empty: '走査範囲内でセッション鍵は見つかりませんでした（より古い鍵を調べたい場合は上の「イベント遡りブロック数」を広げるか Session Key を直接入力してください）。',
+    sess_empty: '走査範囲内でセッション鍵は見つかりませんでした（古い鍵は上の「イベント遡りブロック数」を広げるか Session Key を直接指定してください）。',
     st_active: '有効',
     st_active_note: 'この鍵で現在も代理投稿が可能。見覚えのない端末なら Revoke 対象。',
     st_expired: '期限切れ',
@@ -2064,13 +2068,13 @@ function renderProfiles(profiles, decimals, symbol) {
       : pill('ok', t('lock_off'));
     return `
       <tr>
-        <td>#${p.tokenId} <b>@${esc(p.username)}</b></td>
+        <td class="prof-cell"><span class="prof-id">#${p.tokenId}</span><b>@${esc(p.username)}</b></td>
         <td>${authBadge}</td>
         <td>${syncBadge}</td>
-        <td>${esc(formatUnits(p.l2Balance, decimals))} ${esc(symbol)}<span class="hint-sub">${esc(t('l2_bal_sub'))}</span></td>
-        <td>${esc(formatUnits(p.withdrawable, decimals))} ${esc(symbol)}<span class="hint-sub">${esc(p.withdrawable > 0n ? t('w_avail') : t('w_none'))}</span></td>
+        <td><span class="val-main">${esc(formatUnits(p.l2Balance, decimals))} ${esc(symbol)}</span><span class="hint-sub">${esc(t('l2_bal_sub'))}</span></td>
+        <td><span class="val-main">${esc(formatUnits(p.withdrawable, decimals))} ${esc(symbol)}</span><span class="hint-sub">${esc(p.withdrawable > 0n ? t('w_avail') : t('w_none'))}</span></td>
         <td>${feeLock}</td>
-        <td>${p.sponsorRepay > 0n ? `${esc(formatUnits(p.sponsorRepay, decimals))} ${esc(symbol)}` : esc(t('repay_none'))}</td>
+        <td class="nowrap">${p.sponsorRepay > 0n ? `${esc(formatUnits(p.sponsorRepay, decimals))} ${esc(symbol)}` : esc(t('repay_none'))}</td>
       </tr>
     `;
   }).join('');
@@ -2078,7 +2082,7 @@ function renderProfiles(profiles, decimals, symbol) {
   profilesSection.innerHTML = `
     <div class="sec-guide">${esc(t('prof_guide'))}</div>
     <div class="tbl-wrap">
-      <table>
+      <table class="tbl-profiles">
         <thead>
           <tr>
             <th>${esc(t('th_prof'))}</th>

@@ -335,13 +335,13 @@ function renderProfiles(profiles, decimals, symbol) {
       : pill('ok', t('lock_off'));
     return `
       <tr>
-        <td>#${p.tokenId} <b>@${esc(p.username)}</b></td>
+        <td class="prof-cell"><span class="prof-id">#${p.tokenId}</span><b>@${esc(p.username)}</b></td>
         <td>${authBadge}</td>
         <td>${syncBadge}</td>
-        <td>${esc(formatUnits(p.l2Balance, decimals))} ${esc(symbol)}<span class="hint-sub">${esc(t('l2_bal_sub'))}</span></td>
-        <td>${esc(formatUnits(p.withdrawable, decimals))} ${esc(symbol)}<span class="hint-sub">${esc(p.withdrawable > 0n ? t('w_avail') : t('w_none'))}</span></td>
+        <td><span class="val-main">${esc(formatUnits(p.l2Balance, decimals))} ${esc(symbol)}</span><span class="hint-sub">${esc(t('l2_bal_sub'))}</span></td>
+        <td><span class="val-main">${esc(formatUnits(p.withdrawable, decimals))} ${esc(symbol)}</span><span class="hint-sub">${esc(p.withdrawable > 0n ? t('w_avail') : t('w_none'))}</span></td>
         <td>${feeLock}</td>
-        <td>${p.sponsorRepay > 0n ? `${esc(formatUnits(p.sponsorRepay, decimals))} ${esc(symbol)}` : esc(t('repay_none'))}</td>
+        <td class="nowrap">${p.sponsorRepay > 0n ? `${esc(formatUnits(p.sponsorRepay, decimals))} ${esc(symbol)}` : esc(t('repay_none'))}</td>
       </tr>
     `;
   }).join('');
@@ -349,7 +349,7 @@ function renderProfiles(profiles, decimals, symbol) {
   profilesSection.innerHTML = `
     <div class="sec-guide">${esc(t('prof_guide'))}</div>
     <div class="tbl-wrap">
-      <table>
+      <table class="tbl-profiles">
         <thead>
           <tr>
             <th>${esc(t('th_prof'))}</th>
